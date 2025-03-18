@@ -1,0 +1,207 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🚀 Cursor IDE 프로젝트 개발 규칙 (RULES.md)
+
+이 문서는 프로젝트의 코드 품질을 유지하고 효율적인 협업을 위해 Cursor IDE에서 준수해야 할 개발 규칙을 정의합니다.
+
+---
+
+## 🏛️ 1. 기본 코딩 스타일
+### 🔹 1.1 Python 코드 스타일
+- **PEP 8 스타일 가이드 준수**
+- 들여쓰기는 **4칸 공백 사용**
+- 최대 줄 길이는 **100자 이하**
+- 불필요한 공백 제거
+
+### 🔹 1.2 변수 및 함수 네이밍
+| 타입       | 네이밍 규칙       | 예시 |
+|-----------|----------------|-----|
+| 변수       | `snake_case`    | `data_loader` |
+| 함수       | `snake_case`    | `load_data()` |
+| 클래스     | `PascalCase`    | `DataPipeline` |
+| 상수       | `UPPER_CASE`    | `DEFAULT_TIMEOUT` |
+
+### 🔹 1.3 주석 및 문서화
+- 모든 함수 및 클래스에는 **docstring**을 작성해야 합니다.
+- 모듈 수준 docstring 예시:
+  ```python
+  """
+  data_loader.py
+
+  데이터 로딩 관련 기능을 정의하는 모듈
+  """
+  ```
+
+- 함수 수준 docstring 예시:
+  ```python
+  def extract_data(source: str) -> list:
+      """
+      주어진 소스에서 데이터를 추출하는 함수.
+
+      Args:
+          source (str): 데이터 소스 (URL, 파일 경로 등)
+
+      Returns:
+          list: 추출된 데이터 리스트
+      """
+      pass
+  ```
+
+---
+
+## 📁 2. 디렉토리 및 파일 구조
+
+```
+/project-root
+│── /src                # 주요 애플리케이션 코드
+│   ├── /extractors     # 데이터 추출 모듈
+│   ├── /loaders        # 데이터 로드 모듈
+│   ├── /transformers   # 데이터 변환 모듈
+│   ├── main.py         # 실행 진입점
+│── /tests              # 테스트 코드
+│   ├── test_extractors.py
+│   ├── test_loaders.py
+│── /docs               # 문서화
+│── /config             # 설정 파일
+│── README.md           # 프로젝트 개요
+│── requirements.txt    # Python 패키지 목록
+│── .env                # 환경 변수 설정 (git ignore)
+│── .gitignore          # Git 무시 파일 목록
+│── Dockerfile          # 컨테이너 배포 설정
+```
+
+---
+
+## 📌 3. Git 커밋 컨벤션
+### 🔹 3.1 커밋 메시지 규칙
+- **형식:**  
+  ```
+  <타입>: <변경 내용>
+  ```
+- **예시:**  
+  ```
+  feat: MySQL 데이터 추출 기능 추가
+  fix: BigQuery 로딩 시 발생하는 버그 수정
+  refactor: extract_data 함수 최적화
+  ```
+
+- **커밋 타입 목록**
+  | 타입     | 설명 |
+  |---------|-----|
+  | feat    | 새로운 기능 추가 |
+  | fix     | 버그 수정 |
+  | docs    | 문서 변경 |
+  | refactor | 코드 리팩토링 (기능 변경 없음) |
+  | test    | 테스트 코드 추가 및 수정 |
+  | chore   | 빌드/배포 설정 수정 |
+
+---
+
+## 🔄 4. PR(Pull Request) 가이드
+### 🔹 4.1 PR 작성 규칙
+- 제목은 커밋 메시지와 동일한 형식 사용
+- 변경된 코드에 대한 설명 포함 (어떤 문제를 해결했는지 명확히 작성)
+- `develop` 브랜치 기준으로 PR 생성
+- 최소 **1명 이상의 코드 리뷰 승인** 필요
+
+---
+
+## 🛠️ 5. 테스트 및 품질 관리
+### 🔹 5.1 테스트 정책
+- `pytest` 기반의 **유닛 테스트 필수**
+- 주요 기능 변경 시 **테스트 코드 추가 필수**
+- `tests/` 디렉토리에 테스트 파일 작성
+
+### 🔹 5.2 코드 리뷰 체크리스트
+✅ 올바른 네이밍이 사용되었는가?  
+✅ 함수/클래스가 단일 책임 원칙(SRP)을 따르는가?  
+✅ 불필요한 주석/코드가 없는가?  
+✅ 문서화가 적절히 작성되었는가?  
+✅ 보안적으로 취약한 코드가 없는가?  
+
+---
+
+## 🚀 6. 성능 및 최적화 가이드
+### 🔹 6.1 데이터 처리 최적화
+- 대량의 데이터 처리 시 **병렬 처리 또는 비동기 처리(AIO) 고려**
+- SQL 쿼리는 **인덱스를 활용하여 최적화**
+- Pandas/Numpy 사용 시 **Vectorized 연산 우선 적용**
+  
+```python
+# 비효율적인 반복문 처리 방식 ❌
+for i in range(len(df)):
+    df.loc[i, "new_col"] = df.loc[i, "col1"] + df.loc[i, "col2"]
+
+# 벡터화 적용 방식 ✅
+df["new_col"] = df["col1"] + df["col2"]
+```
+
+---
+
+## 🔐 7. 보안 및 환경 변수 관리
+### 🔹 7.1 보안 규칙
+- API 키, 데이터베이스 비밀번호 등 **환경 변수 사용 (.env 파일)**
+- `.gitignore`에 `.env` 파일 포함하여 Git에 노출되지 않도록 설정
+
+### 🔹 7.2 인증 정보 관리
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DB_PASSWORD = os.getenv("DB_PASSWORD")  # 환경 변수에서 로드
+```
+
+---
+
+## 📌 8. 코드 자동화 및 정적 분석 도구
+### 🔹 8.1 코드 포맷팅
+- `black` 및 `isort` 적용
+```sh
+black .
+isort .
+```
+
+### 🔹 8.2 정적 분석
+- `pylint` 및 `flake8` 적용
+```sh
+pylint src/
+flake8 src/
+```
+
+### 🔹 8.3 커밋 전 자동 검사 (pre-commit hook 설정)
+- `.pre-commit-config.yaml` 예시:
+```yaml
+repos:
+  - repo: https://github.com/psf/black
+    rev: stable
+    hooks:
+      - id: black
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.3.0
+    hooks:
+      - id: end-of-file-fixer
+```
+```sh
+# pre-commit 설치 및 활성화
+pip install pre-commit
+pre-commit install
+```
+
+---
+
+## 🎯 9. 프로젝트 스타일 가이드 TL;DR
+✔ **PEP 8 준수**  
+✔ **snake_case 사용** (클래스는 PascalCase)  
+✔ **YAML 기반 설정 파일 사용**  
+✔ **Git 커밋 메시지 규칙 준수**  
+✔ **PR 작성 가이드 준수**  
+✔ **유닛 테스트 필수 (`pytest` 사용)**  
+✔ **환경 변수로 보안 정보 관리**  
+✔ **코드 자동화 (black, isort, pylint, flake8)**  
+
+---
