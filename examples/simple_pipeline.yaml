@@ -1,0 +1,21 @@
+version: 1
+pipeline:
+  name: mysql-to-bigquery
+  description: "MySQL에서 BigQuery로 사용자 데이터 전송"
+  
+  source:
+    type: mysql
+    config:
+      host: localhost
+      database: mydb
+      user: ${MYSQL_USER}
+      password: ${MYSQL_PASSWORD}
+      query: SELECT * FROM users WHERE updated_at > '{{ last_run }}'
+  
+  destination:
+    type: bigquery
+    config:
+      project: my-project
+      dataset: mydataset
+      table: users
+      if_exists: append 

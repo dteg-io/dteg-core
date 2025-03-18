@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dteg"
+version = "0.1.0"
+description = "데이터 파이프라인 구축을 위한 확장 가능한 ETL 도구"
+readme = "README.md"
+authors = [
+    {name = "DTEG Team", email = "example@dteg.io"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Database",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "click>=8.0.0",
+    "pyyaml>=6.0",
+    "pydantic>=1.9.0",
+    "rich>=12.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+    "black>=22.0.0",
+    "isort>=5.10.0",
+    "mypy>=0.942",
+    "flake8>=4.0.0",
+    "pre-commit>=2.17.0",
+]
+
+mysql = ["pymysql>=1.0.0"]
+postgres = ["psycopg2-binary>=2.9.0"]
+bigquery = ["google-cloud-bigquery>=3.0.0"]
+snowflake = ["snowflake-connector-python>=2.7.0"]
+s3 = ["boto3>=1.20.0"]
+
+[project.scripts]
+dteg = "dteg.cli.main:cli"
+
+[tool.setuptools]
+packages = {find = {where = ["src"]}}
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
