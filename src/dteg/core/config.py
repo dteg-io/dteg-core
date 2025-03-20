@@ -8,6 +8,11 @@ import yaml
 from pydantic import BaseModel, Field, ValidationError
 
 
+class ConfigValidationError(Exception):
+    """설정 파일 검증 오류"""
+    pass
+
+
 class SourceConfig(BaseModel):
     """데이터 소스 설정"""
     type: str
@@ -65,7 +70,7 @@ def load_config(config_path: str) -> Config:
     Raises:
         FileNotFoundError: 설정 파일을 찾을 수 없는 경우
         yaml.YAMLError: YAML 파싱 오류
-        ValidationError: 스키마 검증 실패
+        ConfigValidationError: 스키마 검증 실패
     """
     try:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -82,4 +87,4 @@ def load_config(config_path: str) -> Config:
         # 스키마 검증
         return Config(**config_dict)
     except ValidationError as e:
-        raise ValidationError(f"설정 파일 검증 실패: {e}", e.raw_errors) 
+        raise ConfigValidationError(f"설정 파일 검증 실패: {e}") 

@@ -1,0 +1,28 @@
+version: 1
+pipeline:
+  name: csv-to-mysql
+  description: "CSV 파일에서 MySQL 데이터베이스로 데이터 적재"
+  
+  source:
+    type: csv
+    config:
+      file_path: "/data/sales_*.csv"
+      delimiter: ","
+      encoding: "utf-8"
+      header: true
+      parse_dates: ["order_date", "ship_date"]
+      dtype:
+        order_id: "int64"
+        customer_id: "int64"
+        amount: "float64"
+  
+  destination:
+    type: mysql
+    config:
+      host: ${MYSQL_HOST}
+      port: 3306
+      database: sales_db
+      user: ${MYSQL_USER}
+      password: ${MYSQL_PASSWORD}
+      table: sales
+      if_exists: append 

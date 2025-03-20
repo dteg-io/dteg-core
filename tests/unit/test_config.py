@@ -9,7 +9,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from dteg.core.config import Config, load_config
+from dteg.core.config import Config, load_config, ConfigValidationError
 
 
 class TestConfig(TestCase):
@@ -71,8 +71,8 @@ class TestConfig(TestCase):
             config_path = f.name
 
         try:
-            # ValidationError가 발생해야 함
-            with pytest.raises(ValidationError):
+            # ConfigValidationError가 발생해야 함
+            with pytest.raises(ConfigValidationError):
                 load_config(config_path)
         finally:
             # 임시 파일 삭제
