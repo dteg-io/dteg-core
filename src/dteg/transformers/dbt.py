@@ -245,4 +245,9 @@ class DbtTransformer(BaseTransformer):
             "result_source": self.result_source,
             "result_path": self.result_path
         })
-        return metadata 
+        return metadata
+        
+    def close(self) -> None:
+        """리소스 정리"""
+        # dbt는 특별히 정리할 자원이 없음
+        pass 

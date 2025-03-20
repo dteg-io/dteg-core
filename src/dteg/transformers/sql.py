@@ -204,4 +204,8 @@ class SQLTransformer(BaseTransformer):
         """리소스 정리"""
         if self.conn is not None:
             self.conn.close()
-            self.conn = None 
+            self.conn = None
+            
+    def close(self) -> None:
+        """리소스 정리 (cleanup의 별칭)"""
+        self.cleanup() 

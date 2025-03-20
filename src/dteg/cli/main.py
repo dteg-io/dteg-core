@@ -192,9 +192,11 @@ def info() -> None:
     
     extractors = PluginRegistry.list_extractors()
     loaders = PluginRegistry.list_loaders()
+    transformers = PluginRegistry.list_transformers()
     
     table.add_row("Extractors", ", ".join(extractors) if extractors else "없음")
     table.add_row("Loaders", ", ".join(loaders) if loaders else "없음")
+    table.add_row("Transformers", ", ".join(transformers) if transformers else "없음")
     
     console.print(table)
 

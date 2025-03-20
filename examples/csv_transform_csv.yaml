@@ -1,0 +1,40 @@
+version: 1
+pipeline:
+  name: csv-transform-csv
+  description: "CSV 파일에서 데이터를 추출하여 SQL로 변환 후 다른 CSV 파일로 저장"
+  
+  source:
+    type: csv
+    config:
+      file_path: "test_pipeline/data/sales.csv"
+      delimiter: ","
+      encoding: "utf-8"
+      header: true
+      parse_dates: ["order_date"]
+      dtype:
+        order_id: "int64"
+        customer_id: "int64"
+        amount: "float64"
+  
+  transformer:
+    type: sql
+    config:
+      engine: "sqlite"
+      temp_table: "sales_data"
+      query: "SELECT customer_id, SUM(amount) as total_amount, 
+              COUNT(*) as order_count, 
+              MAX(order_date) as last_order_date 
+              FROM sales_data 
+              GROUP BY customer_id
+              HAVING SUM(amount) > 50.0
+              ORDER BY total_amount DESC"
+  
+  destination:
+    type: csv
+    config:
+      file_path: "test_pipeline/data/customer_summary.csv"
+      delimiter: ","
+      encoding: "utf-8"
+      header: true
+      index: false
+      mode: "overwrite" 

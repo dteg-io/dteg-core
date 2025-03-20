@@ -70,4 +70,8 @@ class BaseTransformer(ABC):
         자원 정리 작업 수행
         하위 클래스에서 필요한 경우 오버라이드
         """
-        pass 
+        pass
+        
+    def close(self) -> None:
+        """리소스 정리 (cleanup의 별칭)"""
+        self.cleanup() 
