@@ -11,7 +11,7 @@ import pandas as pd
 
 from dteg.core.config import Config, PipelineConfig
 from dteg.core.context import ExecutionStatus, PipelineContext
-from dteg.core.plugin import create_extractor, create_loader, discover_plugins
+from dteg.core.plugin import create_extractor, create_loader, create_transformer, discover_plugins
 from dteg.utils.logging import get_logger
 
 # 로거 가져오기
@@ -49,6 +49,7 @@ class Pipeline:
         
         # 컴포넌트 초기화
         self._extractor = None
+        self._transformer = None
         self._loader = None
     
     def _init_components(self) -> None:
@@ -58,6 +59,12 @@ class Pipeline:
         self._extractor = create_extractor(
             source_config.type, source_config.config
         )
+        
+        # Transformer 인스턴스 생성
+        if self.pipeline_config.transformer:
+            self._transformer = create_transformer(
+                self.pipeline_config.transformer.type, self.pipeline_config.transformer.config
+            )
         
         # Loader 인스턴스 생성
         destination_config = self.pipeline_config.destination
@@ -112,9 +119,8 @@ class Pipeline:
         logger.info(f"데이터 변환 시작: {transformer_config.type}")
         
         try:
-            # TODO: Transformer 플러그인 구현 후 변환 로직 추가
-            # 현재는 단순히 원본 데이터 반환
-            transformed_data = data
+            # Transformer를 사용하여 데이터 변환
+            transformed_data = self._transformer.transform(data)
             
             # 컨텍스트 업데이트
             self.context.update_metrics(data=transformed_data)
@@ -169,6 +175,12 @@ class Pipeline:
                 self._extractor.close()
             except Exception as e:
                 logger.warning(f"Extractor 종료 중 오류 발생: {e}")
+        
+        if self._transformer:
+            try:
+                self._transformer.close()
+            except Exception as e:
+                logger.warning(f"Transformer 종료 중 오류 발생: {e}")
         
         if self._loader:
             try:

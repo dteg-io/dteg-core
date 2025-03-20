@@ -1,0 +1,37 @@
+version: 1
+pipeline:
+  name: mysql-to-dbt-to-bigquery
+  description: "MySQL에서 데이터를 추출하여 dbt로 변환 후 BigQuery에 적재"
+  
+  source:
+    type: mysql
+    config:
+      host: ${MYSQL_HOST}
+      port: 3306
+      database: sales_db
+      user: ${MYSQL_USER}
+      password: ${MYSQL_PASSWORD}
+      query: "SELECT * FROM sales WHERE order_date >= '{{ last_run }}'"
+  
+  transformer:
+    type: dbt
+    config:
+      project_dir: "/path/to/dbt_project"
+      profiles_dir: "${DBT_PROFILES_DIR}"
+      target: "dev"
+      models: "sales_transform"
+      full_refresh: false
+      result_source: "csv"
+      result_path: "/tmp/dbt_results/sales_transform.csv"
+      vars:
+        start_date: "{{ execution_date }}"
+        end_date: "{{ next_execution_date }}"
+  
+  destination:
+    type: bigquery
+    config:
+      project: ${GCP_PROJECT}
+      dataset: analytics
+      table: sales_summary
+      if_exists: append
+      credentials_path: ${GOOGLE_APPLICATION_CREDENTIALS} 
