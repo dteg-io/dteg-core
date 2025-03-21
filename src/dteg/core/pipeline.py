@@ -29,14 +29,22 @@ class Pipeline:
         # 설정 로드
         if isinstance(config, str):
             from dteg.core.config import load_config
-            self.config = load_config(config)
+            loaded_config = load_config(config)
+            self.config = loaded_config
+            # 파이프라인 설정 분리 - Config 객체인 경우 pipeline 속성 사용
+            self.pipeline_config = loaded_config.pipeline
         elif isinstance(config, dict):
             self.config = Config(**config)
-        else:
+            # 파이프라인 설정 분리 - Config 객체인 경우 pipeline 속성 사용
+            self.pipeline_config = self.config.pipeline
+        elif hasattr(config, 'pipeline'):
+            # Config 객체인 경우
             self.config = config
-
-        # 파이프라인 설정 분리
-        self.pipeline_config = self.config.pipeline
+            self.pipeline_config = config.pipeline
+        else:
+            # 이미 PipelineConfig 객체인 경우
+            self.config = config
+            self.pipeline_config = config
         
         # 컨텍스트 초기화
         self.context = PipelineContext(

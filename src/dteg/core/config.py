@@ -4,6 +4,7 @@ YAML 설정 파일 처리 모듈
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
@@ -57,6 +58,7 @@ class PipelineConfig(BaseModel):
     """파이프라인 설정"""
     name: str
     description: Optional[str] = None
+    pipeline_id: Optional[str] = None
     source: SourceConfig
     destination: DestinationConfig
     transformer: Optional[TransformerConfig] = None
@@ -65,6 +67,30 @@ class PipelineConfig(BaseModel):
     schedule: Optional[str] = None
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    
+    @classmethod
+    def from_yaml(cls, yaml_path: Union[str, Path]) -> 'PipelineConfig':
+        """YAML 파일에서 파이프라인 설정 로드
+        
+        Args:
+            yaml_path: YAML 파일 경로
+            
+        Returns:
+            PipelineConfig 객체
+            
+        Raises:
+            FileNotFoundError: 파일을 찾을 수 없는 경우
+            yaml.YAMLError: YAML 파싱 오류
+            ConfigValidationError: 설정 유효성 검증 실패
+        """
+        config = load_config(str(yaml_path))
+        pipeline_config = config.pipeline
+        
+        # pipeline_id가 설정되어 있지 않으면 파일 경로를 pipeline_id로 사용
+        if not pipeline_config.pipeline_id:
+            pipeline_config.pipeline_id = str(yaml_path)
+        
+        return pipeline_config
 
 
 class Config(BaseModel):

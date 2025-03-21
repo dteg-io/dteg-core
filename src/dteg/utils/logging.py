@@ -49,7 +49,7 @@ def configure_logging(
     # 콘솔 로그 핸들러 설정 (Rich 활용)
     console_handler = RichHandler(
         rich_tracebacks=True,
-        show_time=False,
+        show_time=True,
         show_path=False,
         markup=True,
     )
