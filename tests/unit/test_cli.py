@@ -253,7 +253,7 @@ pipeline:
         assert '스케줄러가 중지되었습니다' in result.output
         
         # 오케스트레이터 호출 검증
-        mock_orchestrator.start_scheduler.assert_called_once_with(interval=30)
+        mock_orchestrator.start_scheduler.assert_called_once_with(interval=30, no_immediate_run=False)
         mock_orchestrator.stop_scheduler.assert_called_once()
 
 
