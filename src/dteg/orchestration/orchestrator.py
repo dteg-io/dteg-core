@@ -242,12 +242,13 @@ class Orchestrator:
             "error_message": "실행 상태를 찾을 수 없습니다."
         }
     
-    def start_scheduler(self, interval: int = 60):
+    def start_scheduler(self, interval: int = 60, no_immediate_run: bool = False):
         """
         스케줄러 시작
         
         Args:
             interval: 스케줄 확인 간격(초)
+            no_immediate_run: True이면 스케줄러 시작 시 즉시 실행하지 않고 다음 간격까지 대기
         """
         if self.scheduler_running:
             logger.warning("스케줄러가 이미 실행 중입니다.")
@@ -263,6 +264,11 @@ class Orchestrator:
             sys.stdout.flush()
             
             try:
+                # no_immediate_run이 True이면 첫 번째 실행을 건너뛰고 간격만큼 기다림
+                if no_immediate_run:
+                    logger.info(f"즉시 실행 모드가 비활성화되었습니다. {interval}초 후 첫 번째 실행이 시작됩니다.")
+                    time.sleep(interval)
+                
                 while self.scheduler_running:
                     self.scheduler.run_once()
                     # 로그 출력 후 표준 출력 버퍼 강제 플러시
@@ -275,7 +281,11 @@ class Orchestrator:
         
         self.scheduler_thread = threading.Thread(target=scheduler_loop, daemon=True)
         self.scheduler_thread.start()
-        logger.info(f"스케줄러가 시작되었습니다 (간격: {interval}초)")
+        
+        if no_immediate_run:
+            logger.info(f"스케줄러가 시작되었습니다 (간격: {interval}초, 즉시 실행 없음)")
+        else:
+            logger.info(f"스케줄러가 시작되었습니다 (간격: {interval}초)")
     
     def stop_scheduler(self):
         """스케줄러 중지"""

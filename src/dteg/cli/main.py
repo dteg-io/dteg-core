@@ -469,7 +469,8 @@ def scheduler():
 @click.option("--verbose", "-v", is_flag=True, help="자세한 로그 출력")
 @click.option("--log-level", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]), default=None, help="로그 레벨 설정")
 @click.option("--log-file", type=str, help="로그 파일 경로 (기본값: scheduler_{timestamp}.log)")
-def start_scheduler(interval: int, daemon: bool, use_celery: bool, broker_url: Optional[str], result_backend: Optional[str], verbose: bool, log_level: Optional[str], log_file: Optional[str]):
+@click.option("--no-immediate-run", is_flag=True, help="스케줄러 시작 시 즉시 실행하지 않고 다음 간격까지 대기")
+def start_scheduler(interval: int, daemon: bool, use_celery: bool, broker_url: Optional[str], result_backend: Optional[str], verbose: bool, log_level: Optional[str], log_file: Optional[str], no_immediate_run: bool):
     """스케줄러 시작"""
     try:
         if daemon:
@@ -538,8 +539,12 @@ def start_scheduler(interval: int, daemon: bool, use_celery: bool, broker_url: O
             console.print(f"[blue]스케줄 등록 방법: dteg schedule add <파이프라인_설정_파일> --cron='* * * * *'[/]")
         
         # 스케줄러 시작
-        orchestrator.start_scheduler(interval=interval)
-        console.print(f"[bold green]✓[/] 스케줄러가 시작되었습니다 (간격: {interval}초)")
+        orchestrator.start_scheduler(interval=interval, no_immediate_run=no_immediate_run)
+        
+        if no_immediate_run:
+            console.print(f"[bold green]✓[/] 스케줄러가 시작되었습니다 (간격: {interval}초, 즉시 실행 없음)")
+        else:
+            console.print(f"[bold green]✓[/] 스케줄러가 시작되었습니다 (간격: {interval}초)")
         
         if not daemon:
             console.print("[yellow]Ctrl+C로 중지할 수 있습니다...[/]")
