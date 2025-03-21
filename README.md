@@ -13,6 +13,7 @@ DTEG은 다양한 데이터 소스에서 데이터를 추출하여 다른 시스
 - **플러그인 시스템**: 사용자 정의 확장 기능 지원
 - **증분 추출**: 변경된 데이터만 효율적으로 처리
 - **스케줄링 및 오케스트레이션**: 정기적인 작업 실행 및 종속성 관리
+- **로깅 시스템**: 자동 로그 파일 생성 및 세부 로깅 제공
 
 ## 🛠️ 설치
 
@@ -83,6 +84,9 @@ dteg run pipeline_config.yaml
 # 상세 로그와 함께 실행
 dteg run pipeline_config.yaml --verbose
 
+# 로그 파일 지정하여 실행
+dteg run pipeline_config.yaml --log-file=my_pipeline.log
+
 # 설정만 검증
 dteg run pipeline_config.yaml --validate-only
 ```
@@ -123,11 +127,14 @@ dteg schedule run <schedule_id>
 ### 스케줄러 제어
 
 ```bash
-# 스케줄러 시작
+# 스케줄러 시작 (자동으로 로그 파일 생성됨)
 dteg scheduler start
 
 # 인터벌 설정하여 시작 (기본값: 60초)
 dteg scheduler start --interval=30
+
+# 로그 레벨과 로그 파일 지정하여 시작
+dteg scheduler start --verbose --log-file=my_scheduler.log
 
 # 스케줄러 상태 확인
 dteg scheduler status
@@ -135,11 +142,27 @@ dteg scheduler status
 # 스케줄러 중지
 dteg scheduler stop
 
-# 스케줄러 한 번만 실행
+# 스케줄러 한 번만 실행 (자동으로 로그 파일 생성됨)
 dteg scheduler run-once
 
 # 강제 실행 모드로 한 번 실행 (예약 시간 무시)
-dteg scheduler run-once --force
+dteg scheduler run-once --force --log-file=forced_run.log
+```
+
+### 로깅 시스템
+
+DTEG는 자동 로그 파일 생성 기능을 제공합니다:
+
+```bash
+# 기본 로그 파일은 logs/ 디렉토리에 자동 생성됨
+# 형식: scheduler_YYYYMMDD-HHMMSS.log 또는 scheduler_run_once_YYYYMMDD-HHMMSS.log
+
+# 로그 파일 경로 직접 지정
+dteg scheduler start --log-file=custom_path.log
+
+# 로그 레벨 설정
+dteg scheduler start --log-level=DEBUG
+dteg scheduler run-once --verbose  # verbose는 DEBUG 레벨과 동일
 ```
 
 ### 파이프라인 설정 예시
@@ -168,6 +191,8 @@ loaders:
 - 스케줄러 사용 시, 구성한 파이프라인의 설정 파일에 `pipeline_id`와 `schedule` 섹션이 올바르게 설정되어 있어야 합니다.
 - 스케줄 목록을 확인하려면 `dteg schedule list` 명령을 사용하세요.
 - `dteg scheduler run-once` 명령을 사용하면 스케줄러가 한 번만 실행되어 대기 중인 모든 파이프라인을 처리합니다.
+- 모든 스케줄러 명령은 자동으로 로그 파일을 생성하며, 실행 시 로그 파일 경로가 콘솔에 표시됩니다.
+- 로그 파일은 기본적으로 현재 작업 디렉토리의 `logs/` 폴더에 저장됩니다.
 
 ## 🤝 기여하기
 
