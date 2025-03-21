@@ -133,6 +133,9 @@ dteg scheduler start
 # 인터벌 설정하여 시작 (기본값: 60초)
 dteg scheduler start --interval=30
 
+# 즉시 실행 없이 시작 (다음 간격까지 대기)
+dteg scheduler start --no-immediate-run
+
 # 로그 레벨과 로그 파일 지정하여 시작
 dteg scheduler start --verbose --log-file=my_scheduler.log
 
@@ -191,6 +194,7 @@ loaders:
 - 스케줄러 사용 시, 구성한 파이프라인의 설정 파일에 `pipeline_id`와 `schedule` 섹션이 올바르게 설정되어 있어야 합니다.
 - 스케줄 목록을 확인하려면 `dteg schedule list` 명령을 사용하세요.
 - `dteg scheduler run-once` 명령을 사용하면 스케줄러가 한 번만 실행되어 대기 중인 모든 파이프라인을 처리합니다.
+- 기본적으로 스케줄러 시작 시 즉시 실행 가능한 파이프라인이 있으면 바로 실행됩니다. 이를 방지하려면 `--no-immediate-run` 옵션을 사용하세요.
 - 모든 스케줄러 명령은 자동으로 로그 파일을 생성하며, 실행 시 로그 파일 경로가 콘솔에 표시됩니다.
 - 로그 파일은 기본적으로 현재 작업 디렉토리의 `logs/` 폴더에 저장됩니다.
 
