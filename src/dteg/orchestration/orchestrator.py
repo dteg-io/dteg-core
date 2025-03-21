@@ -259,25 +259,6 @@ class Orchestrator:
         def scheduler_loop():
             logger.info("스케줄러 스레드 시작됨")
             
-            # 표준 출력 핸들러가 있는지 확인하고, 없으면 추가
-            # 강제로 표준 출력으로 로그 출력
-            stream_handler = logging.StreamHandler(sys.stdout)
-            stream_handler.setLevel(logging.DEBUG)  # 모든 로그 레벨 출력
-            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-            stream_handler.setFormatter(formatter)
-            
-            # 핸들러 중복 방지
-            root_logger = logging.getLogger('dteg')
-            has_stdout_handler = False
-            for handler in root_logger.handlers:
-                if isinstance(handler, logging.StreamHandler) and handler.stream == sys.stdout:
-                    has_stdout_handler = True
-                    break
-            
-            if not has_stdout_handler:
-                root_logger.addHandler(stream_handler)
-                logger.info("표준 출력 로그 핸들러가 추가되었습니다.")
-            
             # 출력 버퍼 플러시 설정
             sys.stdout.flush()
             
