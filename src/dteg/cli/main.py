@@ -477,34 +477,35 @@ def start_scheduler(interval: int, daemon: bool, use_celery: bool, broker_url: O
         
         # 로그 레벨 조정
         import logging
+        from pathlib import Path
+        from datetime import datetime
+        import sys
+        
         # verbose는 항상 DEBUG 레벨, log_level이 지정되면 해당 레벨 사용
         selected_level = logging.DEBUG if verbose else (getattr(logging, log_level) if log_level else logging.INFO)
         
-        # 로그 파일 설정
-        if log_file:
-            from dteg.utils.logging import configure_logging
-            log_dir = Path.cwd() / "logs"
-            log_dir.mkdir(exist_ok=True, parents=True)
-            configure_logging(
-                level=logging.getLevelName(selected_level),
-                log_file=log_file,
-                log_dir=str(log_dir)
-            )
-            console.print(f"[yellow]로그가 파일 {log_dir / log_file}에 저장됩니다.[/]")
-        else:
-            # 파일을 지정하지 않은 경우 기본 파일명 사용
-            from datetime import datetime
+        # 로그 파일은 항상 생성 (명시적 설정이 없어도)
+        from dteg.utils.logging import configure_logging
+        
+        # 로그 디렉토리 생성
+        log_dir = Path.cwd() / "logs"
+        log_dir.mkdir(exist_ok=True, parents=True)
+        
+        # 로그 파일 경로 설정
+        if not log_file:
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            from dteg.utils.logging import configure_logging
-            log_dir = Path.cwd() / "logs"
-            log_dir.mkdir(exist_ok=True, parents=True)
-            default_log_file = f"scheduler_{timestamp}.log"
-            configure_logging(
-                level=logging.getLevelName(selected_level),
-                log_file=default_log_file,
-                log_dir=str(log_dir)
-            )
-            console.print(f"[yellow]로그가 파일 {log_dir / default_log_file}에 저장됩니다.[/]")
+            log_file = f"scheduler_{timestamp}.log"
+            
+        # 콘솔에 로그 파일 정보 출력
+        print(f"로그 파일이 {log_dir / log_file}에 저장됩니다.", file=sys.stderr)
+        
+        # 로그 설정 적용
+        configure_logging(
+            level=logging.getLevelName(selected_level),
+            log_file=log_file,
+            log_dir=str(log_dir)
+        )
+        console.print(f"[yellow]로그가 파일 {log_dir / log_file}에 저장됩니다.[/]")
         
         logging.getLogger('dteg').setLevel(selected_level)
         console.print(f"[yellow]로그 레벨이 {logging.getLevelName(selected_level)}로 설정되었습니다.[/]")
@@ -594,35 +595,34 @@ def scheduler_run_once(verbose: bool, log_level: Optional[str], force: bool, log
         # 로그 레벨 조정
         import logging
         import sys
+        from pathlib import Path
+        from datetime import datetime
         
         # 로깅 셋업
         selected_level = logging.DEBUG if verbose else (getattr(logging, log_level) if log_level else logging.INFO)
         
-        # 로그 파일 설정
-        if log_file:
-            from dteg.utils.logging import configure_logging
-            log_dir = Path.cwd() / "logs"
-            log_dir.mkdir(exist_ok=True, parents=True)
-            configure_logging(
-                level=logging.getLevelName(selected_level),
-                log_file=log_file,
-                log_dir=str(log_dir)
-            )
-            console.print(f"[yellow]로그가 파일 {log_dir / log_file}에 저장됩니다.[/]")
-        else:
-            # 파일을 지정하지 않은 경우 기본 파일명 사용
-            from datetime import datetime
+        # 로그 파일은 항상 생성 (명시적 설정이 없어도)
+        from dteg.utils.logging import configure_logging
+        
+        # 로그 디렉토리 생성
+        log_dir = Path.cwd() / "logs"
+        log_dir.mkdir(exist_ok=True, parents=True)
+        
+        # 로그 파일 경로 설정
+        if not log_file:
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            from dteg.utils.logging import configure_logging
-            log_dir = Path.cwd() / "logs"
-            log_dir.mkdir(exist_ok=True, parents=True)
-            default_log_file = f"scheduler_run_once_{timestamp}.log"
-            configure_logging(
-                level=logging.getLevelName(selected_level),
-                log_file=default_log_file,
-                log_dir=str(log_dir)
-            )
-            console.print(f"[yellow]로그가 파일 {log_dir / default_log_file}에 저장됩니다.[/]")
+            log_file = f"scheduler_run_once_{timestamp}.log"
+        
+        # 콘솔에 로그 파일 정보 출력
+        print(f"로그 파일이 {log_dir / log_file}에 저장됩니다.", file=sys.stderr)
+        
+        # 로그 설정 적용
+        configure_logging(
+            level=logging.getLevelName(selected_level),
+            log_file=log_file,
+            log_dir=str(log_dir)
+        )
+        console.print(f"[yellow]로그가 파일 {log_dir / log_file}에 저장됩니다.[/]")
         
         dteg_logger = logging.getLogger('dteg')
         dteg_logger.setLevel(selected_level)

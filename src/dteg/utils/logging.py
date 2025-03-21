@@ -59,17 +59,26 @@ def configure_logging(
     # 파일 로그 핸들러 설정 (지정된 경우)
     if log_file:
         try:
-            if log_dir:
-                os.makedirs(log_dir, exist_ok=True)
-                log_path = os.path.join(log_dir, log_file)
-            else:
-                log_path = log_file
-
-            # 타임스탬프를 파일명에 추가
+            # 디버그용 메시지
+            print(f"로그 설정: log_file={log_file}, log_dir={log_dir}", file=sys.stderr)
+            
+            # 타임스탬프 생성
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            file_name, file_ext = os.path.splitext(log_path)
-            log_file_path = f"{file_name}_{timestamp}{file_ext}"
-
+            
+            # 로그 파일 경로 생성
+            if log_dir:
+                # 로그 디렉토리 생성
+                os.makedirs(log_dir, exist_ok=True)
+                file_name, file_ext = os.path.splitext(log_file)
+                log_file_path = os.path.join(log_dir, f"{file_name}_{timestamp}{file_ext}")
+                print(f"로그 파일 경로 (디렉토리 지정): {log_file_path}", file=sys.stderr)
+            else:
+                # 로그 디렉토리 없이 파일명만 사용
+                file_name, file_ext = os.path.splitext(log_file)
+                log_file_path = f"{file_name}_{timestamp}{file_ext}"
+                print(f"로그 파일 경로 (상대경로): {log_file_path}", file=sys.stderr)
+            
+            # 파일 핸들러 생성
             file_handler = logging.FileHandler(
                 log_file_path, mode="a", encoding="utf-8"
             )
@@ -81,12 +90,21 @@ def configure_logging(
             file_handler.setFormatter(file_format)
             file_handler.setLevel(log_level)
             logger.addHandler(file_handler)
+            
+            # 파일 로그 활성화 여부 확인
+            print(f"로그 파일 핸들러 추가됨: {log_file_path}", file=sys.stderr)
+            
         except Exception as e:
-            console.print(f"[bold red]로그 파일 생성 중 오류 발생: {e}[/]")
-            sys.exit(1)
-
+            error_msg = f"로그 파일 생성 중 오류 발생: {e}, 파일: {log_file}, 디렉토리: {log_dir}"
+            print(f"[ERROR] {error_msg}", file=sys.stderr)
+            console.print(f"[bold red]{error_msg}[/]")
+            # 시스템 종료하지 않고 계속 진행
+            # 오류가 발생해도 프로그램이 종료되지 않도록 수정
+            
     # 로깅 설정 완료 로그
     logger.debug("로깅 시스템이 설정되었습니다.")
+    if log_file:
+        logger.info(f"로그 파일 경로: {os.path.abspath(log_file_path) if 'log_file_path' in locals() else 'None'}")
 
 
 def get_logger() -> logging.Logger:
