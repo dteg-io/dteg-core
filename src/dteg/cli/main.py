@@ -468,19 +468,46 @@ def scheduler():
 @click.option("--result-backend", help="Celery 결과 백엔드 URL (기본값: CELERY_RESULT_BACKEND 환경 변수)")
 @click.option("--verbose", "-v", is_flag=True, help="자세한 로그 출력")
 @click.option("--log-level", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]), default=None, help="로그 레벨 설정")
-def start_scheduler(interval: int, daemon: bool, use_celery: bool, broker_url: Optional[str], result_backend: Optional[str], verbose: bool, log_level: Optional[str]):
+@click.option("--log-file", type=str, help="로그 파일 경로 (기본값: scheduler_{timestamp}.log)")
+def start_scheduler(interval: int, daemon: bool, use_celery: bool, broker_url: Optional[str], result_backend: Optional[str], verbose: bool, log_level: Optional[str], log_file: Optional[str]):
     """스케줄러 시작"""
     try:
         if daemon:
             console.print("[yellow]데몬 모드는 아직 구현되지 않았습니다. 포그라운드 모드로 실행합니다.[/]")
         
         # 로그 레벨 조정
-        if verbose or log_level:
-            import logging
-            # verbose는 항상 DEBUG 레벨, log_level이 지정되면 해당 레벨 사용
-            selected_level = logging.DEBUG if verbose else (getattr(logging, log_level) if log_level else logging.INFO)
-            logging.getLogger('dteg').setLevel(selected_level)
-            console.print(f"[yellow]로그 레벨이 {logging.getLevelName(selected_level)}로 설정되었습니다.[/]")
+        import logging
+        # verbose는 항상 DEBUG 레벨, log_level이 지정되면 해당 레벨 사용
+        selected_level = logging.DEBUG if verbose else (getattr(logging, log_level) if log_level else logging.INFO)
+        
+        # 로그 파일 설정
+        if log_file:
+            from dteg.utils.logging import configure_logging
+            log_dir = Path.cwd() / "logs"
+            log_dir.mkdir(exist_ok=True, parents=True)
+            configure_logging(
+                level=logging.getLevelName(selected_level),
+                log_file=log_file,
+                log_dir=str(log_dir)
+            )
+            console.print(f"[yellow]로그가 파일 {log_dir / log_file}에 저장됩니다.[/]")
+        else:
+            # 파일을 지정하지 않은 경우 기본 파일명 사용
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            from dteg.utils.logging import configure_logging
+            log_dir = Path.cwd() / "logs"
+            log_dir.mkdir(exist_ok=True, parents=True)
+            default_log_file = f"scheduler_{timestamp}.log"
+            configure_logging(
+                level=logging.getLevelName(selected_level),
+                log_file=default_log_file,
+                log_dir=str(log_dir)
+            )
+            console.print(f"[yellow]로그가 파일 {log_dir / default_log_file}에 저장됩니다.[/]")
+        
+        logging.getLogger('dteg').setLevel(selected_level)
+        console.print(f"[yellow]로그 레벨이 {logging.getLevelName(selected_level)}로 설정되었습니다.[/]")
             
         orchestrator = get_orchestrator(use_celery=use_celery, broker_url=broker_url, result_backend=result_backend)
         
@@ -560,7 +587,8 @@ def scheduler_status():
 @click.option("--verbose", "-v", is_flag=True, help="자세한 로그 출력")
 @click.option("--log-level", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]), default=None, help="로그 레벨 설정")
 @click.option("--force", "-f", is_flag=True, help="스케줄 시간과 상관없이 강제 실행")
-def scheduler_run_once(verbose: bool, log_level: Optional[str], force: bool):
+@click.option("--log-file", type=str, help="로그 파일 경로 (기본값: scheduler_run_once_{timestamp}.log)")
+def scheduler_run_once(verbose: bool, log_level: Optional[str], force: bool, log_file: Optional[str]):
     """스케줄러를 한 번만 실행하여 대기 중인 스케줄 확인 및 실행"""
     try:
         # 로그 레벨 조정
@@ -569,6 +597,33 @@ def scheduler_run_once(verbose: bool, log_level: Optional[str], force: bool):
         
         # 로깅 셋업
         selected_level = logging.DEBUG if verbose else (getattr(logging, log_level) if log_level else logging.INFO)
+        
+        # 로그 파일 설정
+        if log_file:
+            from dteg.utils.logging import configure_logging
+            log_dir = Path.cwd() / "logs"
+            log_dir.mkdir(exist_ok=True, parents=True)
+            configure_logging(
+                level=logging.getLevelName(selected_level),
+                log_file=log_file,
+                log_dir=str(log_dir)
+            )
+            console.print(f"[yellow]로그가 파일 {log_dir / log_file}에 저장됩니다.[/]")
+        else:
+            # 파일을 지정하지 않은 경우 기본 파일명 사용
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            from dteg.utils.logging import configure_logging
+            log_dir = Path.cwd() / "logs"
+            log_dir.mkdir(exist_ok=True, parents=True)
+            default_log_file = f"scheduler_run_once_{timestamp}.log"
+            configure_logging(
+                level=logging.getLevelName(selected_level),
+                log_file=default_log_file,
+                log_dir=str(log_dir)
+            )
+            console.print(f"[yellow]로그가 파일 {log_dir / default_log_file}에 저장됩니다.[/]")
+        
         dteg_logger = logging.getLogger('dteg')
         dteg_logger.setLevel(selected_level)
         
