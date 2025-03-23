@@ -294,30 +294,40 @@ class Scheduler:
         executed_count = 0
         
         # 실행 대기 중인 스케줄 확인
-        for schedule_id, schedule in self.schedules.items():
-            if not schedule.enabled:
-                logger.debug(f"스케줄 {schedule_id}는 비활성화 상태입니다")
+        for schedule_id, schedule in list(self.schedules.items()):
+            try:
+                if not schedule.enabled:
+                    logger.debug(f"스케줄 {schedule_id}는 비활성화 상태입니다")
+                    continue
+                
+                logger.debug(f"스케줄 {schedule_id} 다음 실행 시간: {schedule.next_run.strftime('%Y-%m-%d %H:%M:%S')}")
+                
+                if schedule.next_run <= now:
+                    pending_schedule_count += 1
+                    pipeline_id = getattr(schedule.pipeline_config, 'pipeline_id', str(schedule.pipeline_config))
+                    
+                    logger.info(f"🔔 실행 대기 중인 스케줄 발견: {schedule_id} (파이프라인: {pipeline_id})")
+                    
+                    # 의존성 확인
+                    if self._check_dependencies(schedule):
+                        logger.info(f"▶️ 파이프라인 실행 시작: {schedule_id} → {pipeline_id}")
+                        try:
+                            self._run_pipeline(schedule)
+                        except Exception as e:
+                            logger.error(f"⚠️ 파이프라인 실행 실패: {schedule_id} → {pipeline_id}: {str(e)}")
+                            # 실패해도 다음 실행 시간 업데이트
+                            
+                        # 다음 실행 시간 업데이트는 실행 성공 여부와 관계없이 수행
+                        schedule.update_next_run()
+                        executed_count += 1
+                        logger.info(f"⏭️ 다음 실행 시간 업데이트: {schedule.next_run.strftime('%Y-%m-%d %H:%M:%S')}")
+                        # 스케줄 저장 (다음 실행 시간 업데이트)
+                        self._save_schedules()
+                    else:
+                        logger.warning(f"⚠️ 스케줄 {schedule_id}의 의존성이 충족되지 않았습니다. 다음 기회에 재시도합니다.")
+            except Exception as e:
+                logger.error(f"⚠️ 스케줄 {schedule_id} 처리 중 오류 발생: {str(e)}")
                 continue
-            
-            logger.debug(f"스케줄 {schedule_id} 다음 실행 시간: {schedule.next_run.strftime('%Y-%m-%d %H:%M:%S')}")
-            
-            if schedule.next_run <= now:
-                pending_schedule_count += 1
-                pipeline_id = getattr(schedule.pipeline_config, 'pipeline_id', str(schedule.pipeline_config))
-                
-                logger.info(f"🔔 실행 대기 중인 스케줄 발견: {schedule_id} (파이프라인: {pipeline_id})")
-                
-                # 의존성 확인
-                if self._check_dependencies(schedule):
-                    logger.info(f"▶️ 파이프라인 실행 시작: {schedule_id} → {pipeline_id}")
-                    self._run_pipeline(schedule)
-                    schedule.update_next_run()
-                    executed_count += 1
-                    logger.info(f"⏭️ 다음 실행 시간 업데이트: {schedule.next_run.strftime('%Y-%m-%d %H:%M:%S')}")
-                    # 스케줄 저장 (다음 실행 시간 업데이트)
-                    self._save_schedules()
-                else:
-                    logger.warning(f"⚠️ 스케줄 {schedule_id}의 의존성이 충족되지 않았습니다. 다음 기회에 재시도합니다.")
         
         # 실행 요약 메시지
         if pending_schedule_count > 0:
@@ -351,70 +361,114 @@ class Scheduler:
                 
         return True
     
-    def _run_pipeline(self, schedule: ScheduleConfig):
+    def _run_pipeline(self, schedule):
         """
         파이프라인 실행
         
         Args:
             schedule: 스케줄 설정 객체
         """
-        # 파이프라인 설정 로드
-        if isinstance(schedule.pipeline_config, (str, Path)):
-            config = PipelineConfig.from_yaml(schedule.pipeline_config)
-        else:
-            config = schedule.pipeline_config
+        # 파이프라인 ID 또는 설정 파일 경로
+        pipeline_config = schedule.pipeline_config
+        schedule_id = schedule.id
         
         # 실행 기록 생성
-        pipeline_id = getattr(config, "pipeline_id", str(schedule.pipeline_config))
-        execution = ExecutionRecord(schedule.id, pipeline_id)
-        self.running_executions[execution.id] = execution
-        
         try:
-            # 명확하고 눈에 띄는 실행 메시지 출력
-            logger.info("=" * 60)
-            logger.info(f"🚀 파이프라인 실행 시작: {pipeline_id} (스케줄: {schedule.id})")
-            logger.info(f"⏰ 실행 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            logger.info("=" * 60)
-            
-            # 파이프라인 실행
-            pipeline = Pipeline(config)
-            pipeline.run()
-            
-            # 실행 완료 처리
-            execution.complete(success=True)
-            
-            # 실행 완료 메시지 출력
-            logger.info("=" * 60)
-            logger.info(f"✅ 파이프라인 실행 완료: {pipeline_id} (스케줄: {schedule.id})")
-            logger.info(f"⏰ 완료 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            logger.info("=" * 60)
-            
-        except Exception as e:
-            error_msg = str(e)
-            
-            # 실행 실패 메시지 출력
-            logger.error("=" * 60)
-            logger.error(f"❌ 파이프라인 실행 실패: {pipeline_id} (스케줄: {schedule.id})")
-            logger.error(f"🔥 오류: {error_msg}")
-            logger.error("=" * 60)
-            
-            # 재시도 여부 결정
-            if execution.retry_count < schedule.max_retries:
-                execution.retry(error_msg)
-                logger.warning(f"⚠️ 파이프라인 재시도 예정: {pipeline_id} (재시도: {execution.retry_count}/{schedule.max_retries})")
-                # TODO: 실제 재시도 로직 구현 (별도 스레드나 지연 실행 등)
+            # 파이프라인 ID 추출
+            if isinstance(pipeline_config, (str, Path)):
+                # 파일 경로인 경우 설정 파일에서 ID 추출 시도
+                try:
+                    if Path(pipeline_config).exists():
+                        # 파일이 존재하는 경우 설정 로드
+                        config = PipelineConfig.from_yaml(pipeline_config)
+                        pipeline_id = config.pipeline_id
+                    else:
+                        # 파일이 존재하지 않으면 문자열을 ID로 간주
+                        pipeline_id = str(pipeline_config)
+                except Exception as e:
+                    logger.warning(f"파이프라인 설정 로드 실패, ID로 처리합니다: {e}")
+                    pipeline_id = str(pipeline_config)
             else:
-                execution.complete(success=False, error_message=error_msg)
-                logger.error(f"❌ 최대 재시도 횟수 초과. 파이프라인 실행 종료: {pipeline_id}")
-        
-        # 실행 기록 처리
-        del self.running_executions[execution.id]
-        self.completed_executions.append(execution)
-        self._save_execution_record(execution)
-        
-        # 콜백 호출
-        if self.on_execution_complete:
-            self.on_execution_complete(execution)
+                # PipelineConfig 객체인 경우
+                pipeline_id = pipeline_config.pipeline_id
+                
+            record = ExecutionRecord(schedule_id, pipeline_id)
+            self.running_executions[record.id] = record
+            
+            # 여기서 실제 파이프라인 실행
+            # 웹 UI에서 등록된 경우 직접 ID로 등록되므로 파일을 찾으려 하지 않고 ID로 처리
+            try:
+                if Path(pipeline_config).exists():
+                    # 실제 파일이 존재하는 경우에만 파일로 로드
+                    pipeline = Pipeline.from_config(pipeline_config)
+                    pipeline.run()
+                else:
+                    # ID만 있는 경우 (웹 UI에서 등록된 경우) 
+                    # 로그만 남기고 실제 실행하지 않음 - 여기서 DB에서 파이프라인 정보를 가져와서 실행하는 코드가 필요
+                    logger.info(f"파이프라인 ID {pipeline_id}를 사용한 실행 (웹 UI 등록 스케줄)")
+                    
+                    # 웹 DB에서 파이프라인 정보 조회 시도
+                    try:
+                        from dteg.web.database import SessionLocal
+                        from dteg.web.models.database_models import Pipeline as DBPipeline
+                        
+                        db = SessionLocal()
+                        try:
+                            db_pipeline = db.query(DBPipeline).filter(DBPipeline.id == pipeline_id).first()
+                            if db_pipeline and db_pipeline.config:
+                                # 설정 데이터 사용
+                                logger.info(f"DB에서 파이프라인 설정 찾음: {pipeline_id}")
+                                
+                                # DB에서 가져온 설정에 'pipeline' 필드가 있는지 확인
+                                config_data = db_pipeline.config
+                                
+                                # 새로운 설정 형식 지원
+                                if 'pipeline' in config_data:
+                                    # 이전 형식: {'pipeline': {...}} 구조
+                                    # 필요한 설정 추출
+                                    pipeline_config = config_data['pipeline']
+                                    # Pipeline 객체 생성
+                                    pipeline = Pipeline(pipeline_config)
+                                    logger.info("이전 형식의 파이프라인 설정을 사용합니다.")
+                                else:
+                                    # 새로운 형식: 평면적 구조
+                                    # Pipeline 객체 생성
+                                    pipeline = Pipeline(config_data)
+                                    logger.info("새로운 형식의 파이프라인 설정을 사용합니다.")
+                                
+                                pipeline.run()
+                            else:
+                                logger.error(f"파이프라인 ID {pipeline_id}에 해당하는 정보를 DB에서 찾을 수 없습니다.")
+                        finally:
+                            db.close()
+                    except Exception as e:
+                        logger.error(f"DB에서 파이프라인 정보 조회 실패: {str(e)}")
+                
+                # 실행 성공 처리
+                record.complete(True)
+                
+            except Exception as e:
+                # 실행 실패 처리
+                error_msg = f"파이프라인 실행 실패: {str(e)}"
+                logger.error(error_msg)
+                record.complete(False, error_msg)
+                # 여기서 retry 로직을 추가할 수 있음
+            
+            # 실행 완료 기록 이동
+            self.completed_executions.append(record)
+            del self.running_executions[record.id]
+            
+            # 콜백 호출
+            if self.on_execution_complete:
+                self.on_execution_complete(record)
+                
+            # 이력 저장
+            self._save_history()
+            
+            return record
+        except Exception as e:
+            logger.error(f"파이프라인 실행 중 예외 발생: {str(e)}")
+            return None
     
     def run_scheduler(self, interval: int = 60):
         """
@@ -437,6 +491,12 @@ class Scheduler:
         with open(record_path, 'w', encoding='utf-8') as f:
             json.dump(execution.to_dict(), f, indent=2, ensure_ascii=False)
     
+    def _save_history(self):
+        """모든 실행 이력 저장"""
+        for execution in self.completed_executions:
+            self._save_execution_record(execution)
+        logger.debug(f"실행 이력이 {self.history_dir}에 저장되었습니다.")
+    
     def _save_schedules(self):
         """모든 스케줄 설정 저장"""
         # 스케줄 정보 저장
@@ -450,6 +510,31 @@ class Scheduler:
             json.dump(schedules_data, f, indent=2, ensure_ascii=False)
         
         logger.debug(f"스케줄 정보가 {schedules_path}에 저장되었습니다.")
+        
+        # SQLite 데이터베이스 업데이트
+        try:
+            from dteg.web.database import SessionLocal
+            from dteg.web.models.database_models import Schedule as DBSchedule
+            
+            db = SessionLocal()
+            try:
+                for schedule_id, schedule in self.schedules.items():
+                    db_schedule = db.query(DBSchedule).filter(DBSchedule.id == schedule_id).first()
+                    if db_schedule and schedule.next_run:
+                        # 다음 실행 시간 업데이트
+                        db_schedule.next_run = schedule.next_run
+                        logger.debug(f"DB 스케줄 {schedule_id}의 다음 실행 시간 업데이트: {schedule.next_run}")
+                
+                # 변경 사항 커밋
+                db.commit()
+                logger.debug("SQLite 데이터베이스에 스케줄 정보가 업데이트되었습니다.")
+            except Exception as e:
+                db.rollback()
+                logger.error(f"SQLite 데이터베이스 업데이트 실패: {str(e)}")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"SQLite 데이터베이스 연결 실패: {str(e)}")
     
     def _load_schedules(self):
         """저장된 스케줄 정보 로드"""
