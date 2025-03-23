@@ -76,7 +76,7 @@ class ScheduleBase(BaseModel):
     pipeline_id: str
     cron_expression: str
     enabled: bool = True
-    parameters: Optional[Dict[str, Any]] = None
+    parameters: Optional[Dict[str, Any]] = None  # DB 모델에서는 params로 저장됨
 
 
 class ScheduleCreate(ScheduleBase):
@@ -95,11 +95,15 @@ class ScheduleResponse(ScheduleBase):
     id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    next_run: Optional[datetime] = None
     
-    model_config = {
-        "from_attributes": True,
-        "populate_by_name": True,
-        "json_schema_extra": {
+    class Config:
+        """Pydantic 모델 설정"""
+        from_attributes = True
+        populate_by_name = True
+        alias_generator = lambda name: "description" if name == "name" else name
+        populate_by_alias = True
+        json_schema_extra = {
             "example": {
                 "id": "b5a33cb9-3f1e-4e74-9d49-3f4ab6c2c2c6",
                 "name": "일일 데이터 처리",
@@ -108,12 +112,27 @@ class ScheduleResponse(ScheduleBase):
                 "enabled": True,
                 "parameters": {"date": "2023-01-01"},
                 "created_at": "2023-01-01T00:00:00",
-                "updated_at": "2023-01-02T00:00:00"
+                "updated_at": "2023-01-02T00:00:00",
+                "next_run": "2023-01-03T00:00:00"
             }
-        },
-        "alias_generator": lambda name: "description" if name == "name" else name,
-        "populate_by_alias": True,
-    }
+        }
+        
+        @classmethod
+        def getter_dict(cls, v):
+            """DB 모델에서 Pydantic 모델로 변환할 때 필드 매핑을 수행합니다."""
+            # 기본 구현
+            from pydantic.main import GetterDict
+            
+            d = GetterDict(v)
+            # description을 name으로 매핑
+            if hasattr(v, "description"):
+                d.__dict__["name"] = v.description
+            
+            # params를 parameters로 매핑
+            if hasattr(v, "params"):
+                d.__dict__["parameters"] = v.params
+            
+            return d
 
 
 # 실행 이력 관련 모델

@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timedelta
 from sqlalchemy import Column, String, Boolean, DateTime, Float, Text, JSON, ForeignKey
 from sqlalchemy.orm import relationship
+from croniter import croniter
 
 from dteg.web.database import Base
 
@@ -60,28 +61,29 @@ class Schedule(Base):
     pipeline = relationship("Pipeline", back_populates="schedules")
     
     def calculate_next_run(self):
-        """간단한 다음 실행 시간 계산 (실제로는 croniter 등 라이브러리 사용)"""
+        """croniter 라이브러리를 사용하여 다음 실행 시간 계산"""
+        # 현재 시간
         now = datetime.now()
         
-        # 간단히 구현: 특정 크론 표현식에 대한 다음 실행 시간 계산
-        if self.cron_expression == "0 0 * * *":  # 매일 자정
-            return (now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1))
-        elif self.cron_expression == "0 */6 * * *":  # 6시간마다
-            hours = (now.hour // 6 + 1) * 6
-            if hours >= 24:
-                return (now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1))
-            return now.replace(hour=hours, minute=0, second=0, microsecond=0)
-        elif self.cron_expression == "0 12 * * 1-5":  # 평일 12시
-            days_ahead = 1
-            if now.hour >= 12:
-                days_ahead += 1
-            next_day = now + timedelta(days=days_ahead)
-            while next_day.weekday() > 4:  # 5=토요일, 6=일요일
-                next_day += timedelta(days=1)
-            return next_day.replace(hour=12, minute=0, second=0, microsecond=0)
-        
-        # 기본값: 1일 후
-        return now + timedelta(days=1)
+        # croniter를 사용하여 다음 실행 시간 계산
+        try:
+            # 유효한 크론 표현식인지 확인
+            if not croniter.is_valid(self.cron_expression):
+                print(f"유효하지 않은 크론 표현식: {self.cron_expression}")
+                return None
+                
+            # 다음 실행 시간 계산
+            cron = croniter(self.cron_expression, now)
+            next_run = cron.get_next(datetime)
+            
+            # 활성화된 스케줄이 아니면 None 반환
+            if not self.enabled:
+                return None
+                
+            return next_run
+        except Exception as e:
+            print(f"다음 실행 시간 계산 중 오류 발생: {str(e)}")
+            return None
 
 class Execution(Base):
     """실행 이력 모델"""

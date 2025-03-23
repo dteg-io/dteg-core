@@ -152,12 +152,13 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage('dashboard');
 
     // 모달 버튼에 대한 이벤트 리스너 설정 (모달이 동적으로 추가되는 경우)
-    document.body.addEventListener('click', function (e) {
-        if (e.target && e.target.id === 'save-schedule-btn') {
-            createSchedule();
-        }
-        if (e.target && e.target.id === 'save-pipeline-btn') {
-            createPipeline();
-        }
-    });
+    // 주의: 각 버튼별 이벤트는 개별 모듈에서 처리하므로 여기서는 제거함
+    // document.body.addEventListener('click', function (e) {
+    //     if (e.target && e.target.id === 'save-schedule-btn') {
+    //         createSchedule();
+    //     }
+    //     if (e.target && e.target.id === 'save-pipeline-btn') {
+    //         createPipeline();
+    //     }
+    // });
 }); 

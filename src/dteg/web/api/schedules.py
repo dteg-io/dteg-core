@@ -79,6 +79,7 @@ async def create_schedule(
     Returns:
         ScheduleResponse: 생성된 스케줄 정보
     """
+    # 파이프라인, parameters에서 params로
     # 파이프라인 존재 여부 확인
     pipeline = db.query(Pipeline).filter(Pipeline.id == schedule.pipeline_id).first()
     
@@ -91,8 +92,11 @@ async def create_schedule(
         pipeline_id=schedule.pipeline_id,
         cron_expression=schedule.cron_expression,
         enabled=schedule.enabled,
-        params=schedule.parameters
+        params=schedule.parameters  # parameters를 params에 맵핑
     )
+    
+    # 다음 실행 시간 계산
+    new_schedule.next_run = new_schedule.calculate_next_run()
     
     # 데이터베이스에 저장
     db.add(new_schedule)
@@ -153,7 +157,7 @@ async def update_schedule(
     
     # 스케줄 업데이트
     if schedule.name is not None:
-        db_schedule.name = schedule.name
+        db_schedule.description = schedule.name  # name을 description에 맵핑
     
     if schedule.pipeline_id is not None:
         db_schedule.pipeline_id = schedule.pipeline_id
@@ -165,9 +169,12 @@ async def update_schedule(
         db_schedule.enabled = schedule.enabled
         
     if schedule.parameters is not None:
-        db_schedule.parameters = schedule.parameters
+        db_schedule.params = schedule.parameters  # parameters를 params에 맵핑
         
     db_schedule.updated_at = datetime.now()
+    
+    # 다음 실행 시간 재계산
+    db_schedule.next_run = db_schedule.calculate_next_run()
     
     # 데이터베이스 업데이트
     db.commit()
