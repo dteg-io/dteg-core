@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DTEG - 데이터 전송 엔지니어링 그룹</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">DTEG</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" data-page="dashboard">
+                            <i class="bi bi-speedometer2"></i> 대시보드
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-page="pipelines">
+                            <i class="bi bi-diagram-3"></i> 파이프라인
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-page="schedules">
+                            <i class="bi bi-calendar3"></i> 스케줄
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-page="executions">
+                            <i class="bi bi-list-check"></i> 실행 이력
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> <span id="username">사용자</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#" id="logout-btn">로그아웃</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 로그인 모달 -->
+    <div class="modal fade" id="loginModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">로그인</h5>
+                </div>
+                <div class="modal-body">
+                    <form id="login-form">
+                        <div class="mb-3">
+                            <label for="username-input" class="form-label">사용자명</label>
+                            <input type="text" class="form-control" id="username-input" value="admin" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password-input" class="form-label">비밀번호</label>
+                            <input type="password" class="form-control" id="password-input" value="admin" required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">로그인</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 콘텐츠 영역 -->
+    <div class="container-fluid mt-3">
+        <div id="content">
+            <!-- 페이지별 콘텐츠는 JS에서 로드됨 -->
+            <div id="dashboard-page" class="content-page">
+                <h2>대시보드</h2>
+                <div class="row mt-4">
+                    <div class="col-md-3">
+                        <div class="card text-white bg-primary mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">총 파이프라인</h5>
+                                <p class="card-text display-6" id="total-pipelines">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white bg-success mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">활성 스케줄</h5>
+                                <p class="card-text display-6" id="active-schedules">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white bg-info mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">완료된 실행</h5>
+                                <p class="card-text display-6" id="completed-executions">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white bg-danger mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">실패한 실행</h5>
+                                <p class="card-text display-6" id="failed-executions">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>최근 실행 이력</h5>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>파이프라인</th>
+                                            <th>상태</th>
+                                            <th>시작 시간</th>
+                                            <th>종료 시간</th>
+                                            <th>작업</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recent-executions-tbody">
+                                        <tr>
+                                            <td colspan="6" class="text-center">데이터가 없습니다</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pipelines-page" class="content-page d-none">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2>파이프라인</h2>
+                    <button class="btn btn-primary" id="create-pipeline-btn">
+                        <i class="bi bi-plus-circle"></i> 새 파이프라인
+                    </button>
+                </div>
+                <div class="mt-3">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>이름</th>
+                                <th>설명</th>
+                                <th>생성일</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pipelines-tbody">
+                            <tr>
+                                <td colspan="5" class="text-center">데이터가 없습니다</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="schedules-page" class="content-page d-none">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2>스케줄</h2>
+                    <button class="btn btn-primary" id="create-schedule-btn">
+                        <i class="bi bi-plus-circle"></i> 새 스케줄
+                    </button>
+                </div>
+                <div class="mt-3">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>파이프라인</th>
+                                <th>Cron 표현식</th>
+                                <th>상태</th>
+                                <th>다음 실행</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schedules-tbody">
+                            <tr>
+                                <td colspan="6" class="text-center">데이터가 없습니다</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="executions-page" class="content-page d-none">
+                <h2>실행 이력</h2>
+                <div class="mt-3">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>파이프라인</th>
+                                <th>상태</th>
+                                <th>시작 시간</th>
+                                <th>종료 시간</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="executions-tbody">
+                            <tr>
+                                <td colspan="6" class="text-center">데이터가 없습니다</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <nav>
+                        <ul class="pagination justify-content-center" id="executions-pagination">
+                            <li class="page-item disabled"><a class="page-link" href="#">이전</a></li>
+                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#">다음</a></li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- 1. API 먼저 로드 -->
+    <script src="/js/api.js"></script>
+    <!-- 2. 공통 유틸리티 함수 로드 -->
+    <script src="/js/core.js"></script>
+    <!-- 3. 기능별 모듈 로드 -->
+    <script src="/js/auth.js"></script>
+    <script src="/js/executions.js"></script>
+    <script src="/js/dashboard.js"></script>
+    <script src="/js/pipelines.js"></script>
+    <script src="/js/schedules.js"></script>
+    <!-- 4. 호환성을 위한 빈 앱 파일 -->
+    <script src="/js/app.js"></script>
+</body>
+
+</html>
