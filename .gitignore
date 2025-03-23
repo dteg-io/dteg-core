@@ -42,6 +42,11 @@ htmlcov/
 # 로그 파일
 *.log
 
+# 데이터베이스 파일
+*.db
+*.sqlite
+*.sqlite3
+
 # 프로젝트 특정 디렉토리
 /data/
 /logs/
