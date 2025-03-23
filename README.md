@@ -199,6 +199,66 @@ loaders:
 - 모든 스케줄러 명령은 자동으로 로그 파일을 생성하며, 실행 시 로그 파일 경로가 콘솔에 표시됩니다.
 - 로그 파일은 기본적으로 현재 작업 디렉토리의 `logs/` 폴더에 저장됩니다.
 
+## 🌐 웹 UI 사용 가이드
+
+DTEG는 웹 기반 사용자 인터페이스를 제공합니다. 웹 UI를 통해 파이프라인을 관리하고 모니터링할 수 있습니다.
+
+### 웹 서버 시작
+
+```bash
+# 기본 설정으로 웹 서버 시작 (기본 포트: 8000)
+dteg web start
+
+# 포트 변경하여 시작
+dteg web start --port=8080
+
+# 개발 모드로 시작 (코드 변경 시 자동 재시작)
+dteg web start --reload
+```
+
+### 웹 UI 접속
+
+웹 서버가 시작되면 브라우저에서 다음 URL로 접속할 수 있습니다:
+```
+http://localhost:8000
+```
+
+### 관리자 계정 설정
+
+웹 UI에 로그인하기 위한 기본 관리자 계정 정보:
+- 사용자명: admin
+- 비밀번호: admin
+
+보안을 위해 실제 운영 환경에서는 관리자 계정 정보를 변경하는 것을 강력히 권장합니다. 
+다음 환경 변수를 설정하여 기본 관리자 계정 정보를 변경할 수 있습니다:
+
+```bash
+# Linux/Mac에서 환경 변수 설정
+export DTEG_ADMIN_USERNAME="my_admin"
+export DTEG_ADMIN_PASSWORD="secure_password"
+export DTEG_ADMIN_EMAIL="admin@mycompany.com"
+export DTEG_ADMIN_FULLNAME="시스템 관리자"
+
+# Windows에서 환경 변수 설정
+set DTEG_ADMIN_USERNAME=my_admin
+set DTEG_ADMIN_PASSWORD=secure_password
+set DTEG_ADMIN_EMAIL=admin@mycompany.com
+set DTEG_ADMIN_FULLNAME=시스템 관리자
+
+# Docker 환경에서 설정 (docker-compose.yml 예시)
+version: '3'
+services:
+  dteg:
+    image: dteg/dteg-core
+    environment:
+      - DTEG_ADMIN_USERNAME=my_admin
+      - DTEG_ADMIN_PASSWORD=secure_password
+      - DTEG_ADMIN_EMAIL=admin@mycompany.com
+      - DTEG_ADMIN_FULLNAME=시스템 관리자
+```
+
+이 환경 변수들은 시스템이 처음 시작될 때만 사용됩니다. 이미 관리자 계정이 생성된 후에는 웹 UI의 사용자 관리 기능을 통해 계정 정보를 변경할 수 있습니다.
+
 ## 🤝 기여하기
 
 기여는 언제나 환영합니다! 자세한 내용은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참조하세요.

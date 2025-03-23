@@ -705,5 +705,31 @@ def scheduler_run_once(verbose: bool, log_level: Optional[str], force: bool, log
         sys.exit(1)
 
 
+# 웹 서버 명령어 그룹 추가
+@cli.group()
+def web():
+    """웹 UI 관리 명령어"""
+    pass
+
+
+@web.command("start")
+@click.option("--host", default="0.0.0.0", help="서버 호스트")
+@click.option("--port", default=8000, help="서버 포트")
+@click.option("--reload", is_flag=True, help="코드 변경 시 자동 재로딩")
+@click.option("--log-level", default="info", help="로깅 레벨 (debug, info, warning, error, critical)")
+@click.option("--log-file", help="로그 파일 경로 (기본값: logs/web_server_PORT.log)")
+def web_start(host, port, reload, log_level, log_file):
+    """웹 서버 시작"""
+    from dteg.web.server import run_server
+    
+    # 로그 파일 설정
+    if log_file:
+        os.environ["DTEG_WEB_LOG_FILE"] = log_file
+    
+    # 서버 실행
+    console.print(f"[bold green]웹 서버 시작 중[/] (host={host}, port={port})")
+    run_server(host=host, port=port, reload=reload, log_level=log_level)
+
+
 if __name__ == "__main__":
     cli() 
