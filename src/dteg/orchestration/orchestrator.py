@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Union, Any, Callable
 from pathlib import Path
 import uuid
 import sys
+import traceback
 
 from dteg.orchestration.scheduler import Scheduler, ScheduleConfig, ExecutionRecord
 from dteg.orchestration.worker import CeleryTaskManager, CeleryTaskQueue
@@ -242,7 +243,7 @@ class Orchestrator:
             "error_message": "실행 상태를 찾을 수 없습니다."
         }
     
-    def start_scheduler(self, interval: int = 60, no_immediate_run: bool = False):
+    def start_scheduler(self, interval: int = 60, no_immediate_run: bool = True):
         """
         스케줄러 시작
         
@@ -263,20 +264,33 @@ class Orchestrator:
             # 출력 버퍼 플러시 설정
             sys.stdout.flush()
             
-            try:
-                # no_immediate_run이 True이면 첫 번째 실행을 건너뛰고 간격만큼 기다림
-                if no_immediate_run:
-                    logger.info(f"즉시 실행 모드가 비활성화되었습니다. {interval}초 후 첫 번째 실행이 시작됩니다.")
-                    time.sleep(interval)
-                
-                while self.scheduler_running:
+            # 스케줄러가 running 상태인 동안 계속 실행
+            while self.scheduler_running:
+                try:
+                    # no_immediate_run이 True이고 첫 번째 실행인 경우 대기
+                    if no_immediate_run and 'first_run' not in locals():
+                        first_run = False
+                        logger.info(f"즉시 실행 모드가 비활성화되었습니다. {interval}초 후 첫 번째 실행이 시작됩니다.")
+                        time.sleep(interval)
+                        continue
+                    
+                    # 스케줄 실행 (오류 처리는 run_once 내부에서 이미 처리)
                     self.scheduler.run_once()
+                    
                     # 로그 출력 후 표준 출력 버퍼 강제 플러시
                     sys.stdout.flush()
+                    
+                    # 다음 확인 전 대기
                     time.sleep(interval)
-            except Exception as e:
-                logger.error(f"스케줄러 스레드 오류: {e}")
-                self.scheduler_running = False
+                except Exception as e:
+                    # 예외 발생 시 스택 트레이스 출력하고 계속 실행
+                    logger.error(f"스케줄러 실행 중 오류 발생: {str(e)}")
+                    logger.error(traceback.format_exc())
+                    # 오류 발생 시에도 계속 실행
+                    logger.info("스케줄러가 오류에서 회복을 시도합니다.")
+                    # 짧은 시간만 대기 후 재시도
+                    time.sleep(5)
+                    
             logger.info("스케줄러 스레드 종료됨")
         
         self.scheduler_thread = threading.Thread(target=scheduler_loop, daemon=True)

@@ -1,49 +1,86 @@
 """
-DTEG Web API Main App
+DTEG Web API - 메인 모듈
 
-FastAPI 애플리케이션 진입점
+FastAPI 애플리케이션 및 API 라우터 설정
 """
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 import os
+from pathlib import Path
 
-from dteg.core.config import Config
-from dteg.orchestration.orchestrator import Orchestrator
-from dteg.orchestration import get_orchestrator
-from dteg.web.api import models
-from dteg.web.api.auth import router as auth_router
-from dteg.web.api.pipelines import router as pipelines_router
-from dteg.web.api.schedules import router as schedules_router
-from dteg.web.api.executions import router as executions_router
+from dteg.web.database import get_db, init_db
+from dteg.web.api import executions, pipelines, schedules, auth
+from dteg.orchestration import get_orchestrator  # 추가: 오케스트레이터 가져오기
 
-# FastAPI 앱 생성
+# FastAPI 애플리케이션 생성
 app = FastAPI(
-    title="DTEG API",
-    description="Data Transfer Engineering Group API",
-    version="0.1.0",
+    title="DTEG Web API",
+    description="데이터 파이프라인 관리 웹 API",
+    version="0.1.0"
 )
 
-# CORS 설정
+# CORS 미들웨어 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 실제 도메인으로 제한해야 함
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 라우터 등록
-app.include_router(auth_router, prefix="/api/auth", tags=["인증"])
-app.include_router(pipelines_router, prefix="/api/pipelines", tags=["파이프라인"])
-app.include_router(schedules_router, prefix="/api/schedules", tags=["스케줄"])
-app.include_router(executions_router, prefix="/api/executions", tags=["실행 이력"])
+# 시작 시 데이터베이스 초기화
+@app.on_event("startup")
+async def startup_db_client():
+    init_db()
+    
+    # 추가: 웹 서버 시작 시 스케줄 동기화
+    try:
+        orchestrator = get_orchestrator()
+        orchestrator.sync_schedules_with_web_db()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"웹 서버 시작 시 스케줄 동기화 실패: {str(e)}")
 
-# 정적 파일 마운트 (프론트엔드 빌드 파일)
+# 정적 파일 디렉토리 경로
 static_dir = Path(__file__).parent.parent / "static"
-if static_dir.exists():
-    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+
+# 정적 파일 마운트 - URL 경로를 수정하여 직접 루트에서 접근 가능하게 함
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# CSS 파일 제공
+@app.get("/css/{file_path:path}")
+async def get_css(file_path: str):
+    return FileResponse(static_dir / "css" / file_path)
+
+# JS 파일 제공
+@app.get("/js/{file_path:path}")
+async def get_js(file_path: str):
+    return FileResponse(static_dir / "js" / file_path)
+
+# favicon 제공 - 오류 수정
+@app.get("/favicon.ico")
+async def get_favicon():
+    favicon_path = static_dir / "favicon.ico"
+    if favicon_path.exists():
+        with open(favicon_path, "rb") as f:
+            content = f.read()
+        return Response(content=content, media_type="image/x-icon")
+    # favicon이 없으면 빈 응답 반환
+    return Response(content=b"", media_type="image/x-icon")
+
+# 웹 인터페이스 라우팅 - 정적 파일로 제공
+@app.get("/")
+async def get_index():
+    index_path = static_dir / "index.html"
+    return FileResponse(index_path)
+
+# API 라우터 등록
+app.include_router(auth.router, prefix="/api/auth", tags=["인증"])
+app.include_router(executions.router, prefix="/api/executions", tags=["실행"])
+app.include_router(pipelines.router, prefix="/api/pipelines", tags=["파이프라인"])
+app.include_router(schedules.router, prefix="/api/schedules", tags=["스케줄"])
 
 # 기본 라우터
 @app.get("/api/health", tags=["시스템"])

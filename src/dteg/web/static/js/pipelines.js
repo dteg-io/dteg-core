@@ -125,23 +125,18 @@ async function editPipeline(pipelineId) {
                 "description": "MySQL에서 CSV로 데이터 추출",
                 "source": {
                     "type": "mysql",
-                    "config": {
-                        "host": "localhost",
-                        "port": 3306,
-                        "database": "example_db",
-                        "user": "dbuser",
-                        "password": "dbpassword",
-                        "table": "source_table",
-                        "query": "SELECT * FROM source_table LIMIT 1000"
-                    }
+                    "host": "localhost",
+                    "port": 3306,
+                    "database": "example_db",
+                    "user": "dbuser",
+                    "password": "dbpassword",
+                    "table": "source_table"
                 },
                 "destination": {
                     "type": "csv",
-                    "config": {
-                        "path": "/path/to/output.csv",
-                        "delimiter": ",",
-                        "encoding": "utf-8"
-                    }
+                    "file_path": "/path/to/output.csv",
+                    "delimiter": ",",
+                    "encoding": "utf-8"
                 },
                 "variables": {
                     "batch_size": 1000,
@@ -189,7 +184,7 @@ function validatePipelineConfig(config) {
         case 'mysql':
         case 'postgresql':
         case 'mariadb':
-            if (!config.source.config || !config.source.config.host || !config.source.config.database) {
+            if (!config.source.host || !config.source.database) {
                 return {
                     valid: false,
                     error: `${config.source.type} 소스는 host와 database 설정이 필요합니다.`
@@ -200,10 +195,10 @@ function validatePipelineConfig(config) {
         case 'csv':
         case 'excel':
         case 'json':
-            if (!config.source.config || !config.source.config.path) {
+            if (!config.source.file_path) {
                 return {
                     valid: false,
-                    error: `${config.source.type} 소스는 파일 경로(path) 설정이 필요합니다.`
+                    error: `${config.source.type} 소스는 파일 경로(file_path) 설정이 필요합니다.`
                 };
             }
             break;
@@ -214,7 +209,7 @@ function validatePipelineConfig(config) {
         case 'mysql':
         case 'postgresql':
         case 'mariadb':
-            if (!config.destination.config || !config.destination.config.host || !config.destination.config.database) {
+            if (!config.destination.host || !config.destination.database) {
                 return {
                     valid: false,
                     error: `${config.destination.type} 목적지는 host와 database 설정이 필요합니다.`
@@ -225,10 +220,10 @@ function validatePipelineConfig(config) {
         case 'csv':
         case 'excel':
         case 'json':
-            if (!config.destination.config || !config.destination.config.path) {
+            if (!config.destination.file_path) {
                 return {
                     valid: false,
-                    error: `${config.destination.type} 목적지는 파일 경로(path) 설정이 필요합니다.`
+                    error: `${config.destination.type} 목적지는 파일 경로(file_path) 설정이 필요합니다.`
                 };
             }
             break;
@@ -381,23 +376,18 @@ function showCreatePipelineModal() {
             "description": "MySQL에서 CSV로 데이터 추출",
             "source": {
                 "type": "mysql",
-                "config": {
-                    "host": "localhost",
-                    "port": 3306,
-                    "database": "example_db",
-                    "user": "dbuser",
-                    "password": "dbpassword",
-                    "table": "source_table",
-                    "query": "SELECT * FROM source_table LIMIT 1000"
-                }
+                "host": "localhost",
+                "port": 3306,
+                "database": "example_db",
+                "user": "dbuser",
+                "password": "dbpassword",
+                "table": "source_table"
             },
             "destination": {
                 "type": "csv",
-                "config": {
-                    "path": "/path/to/output.csv",
-                    "delimiter": ",",
-                    "encoding": "utf-8"
-                }
+                "file_path": "/path/to/output.csv",
+                "delimiter": ",",
+                "encoding": "utf-8"
             },
             "variables": {
                 "batch_size": 1000,

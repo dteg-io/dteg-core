@@ -718,7 +718,8 @@ def web():
 @click.option("--reload", is_flag=True, help="코드 변경 시 자동 재로딩")
 @click.option("--log-level", default="info", help="로깅 레벨 (debug, info, warning, error, critical)")
 @click.option("--log-file", help="로그 파일 경로 (기본값: logs/web_server_PORT.log)")
-def web_start(host, port, reload, log_level, log_file):
+@click.option("--scheduler-interval", type=int, default=60, help="스케줄러 확인 간격(초)")
+def web_start(host, port, reload, log_level, log_file, scheduler_interval):
     """웹 서버 시작"""
     from dteg.web.server import run_server
     
@@ -726,8 +727,11 @@ def web_start(host, port, reload, log_level, log_file):
     if log_file:
         os.environ["DTEG_WEB_LOG_FILE"] = log_file
     
+    # 스케줄러 간격 환경 변수 설정
+    os.environ["DTEG_SCHEDULER_INTERVAL"] = str(scheduler_interval)
+    
     # 서버 실행
-    console.print(f"[bold green]웹 서버 시작 중[/] (host={host}, port={port})")
+    console.print(f"[bold green]웹 서버 시작 중[/] (host={host}, port={port}, scheduler-interval={scheduler_interval})")
     run_server(host=host, port=port, reload=reload, log_level=log_level)
 
 
