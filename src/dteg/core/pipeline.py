@@ -31,16 +31,17 @@ class Pipeline:
             from dteg.core.config import load_config
             loaded_config = load_config(config)
             self.config = loaded_config
-            # 파이프라인 설정 분리 - Config 객체인 경우 pipeline 속성 사용
-            self.pipeline_config = loaded_config.pipeline
+            # 파이프라인 설정 분리
+            self.pipeline_config = loaded_config.get_pipeline_config()
         elif isinstance(config, dict):
+            from dteg.core.config import Config
             self.config = Config(**config)
-            # 파이프라인 설정 분리 - Config 객체인 경우 pipeline 속성 사용
-            self.pipeline_config = self.config.pipeline
-        elif hasattr(config, 'pipeline'):
+            # 파이프라인 설정 분리
+            self.pipeline_config = self.config.get_pipeline_config()
+        elif hasattr(config, 'get_pipeline_config'):
             # Config 객체인 경우
             self.config = config
-            self.pipeline_config = config.pipeline
+            self.pipeline_config = config.get_pipeline_config()
         else:
             # 이미 PipelineConfig 객체인 경우
             self.config = config
@@ -64,20 +65,64 @@ class Pipeline:
         """컴포넌트 초기화"""
         # Extractor 인스턴스 생성
         source_config = self.pipeline_config.source
+        
+        # 모든 필드를 포함한 설정 가져오기
+        source_settings = source_config.model_dump()
+        
+        # type 필드는 제외하고 설정 전달 (이미 create_extractor의 별도 인자로 전달됨)
+        if 'type' in source_settings:
+            del source_settings['type']
+        
+        # config 필드가 있으면 내용을 최상위로 병합하고 원래의 config 필드 제거
+        if 'config' in source_settings and isinstance(source_settings['config'], dict):
+            for key, value in source_settings['config'].items():
+                if key != 'type' and key not in source_settings:
+                    source_settings[key] = value
+            del source_settings['config']
+            
         self._extractor = create_extractor(
-            source_config.type, source_config.config
+            source_config.type, source_settings
         )
         
         # Transformer 인스턴스 생성
         if self.pipeline_config.transformer:
+            transformer_config = self.pipeline_config.transformer
+            
+            # 모든 필드를 포함한 설정 가져오기
+            transformer_settings = transformer_config.model_dump()
+            
+            if 'type' in transformer_settings:
+                del transformer_settings['type']
+                
+            # config 필드가 있으면 내용을 최상위로 병합하고 원래의 config 필드 제거
+            if 'config' in transformer_settings and isinstance(transformer_settings['config'], dict):
+                for key, value in transformer_settings['config'].items():
+                    if key != 'type' and key not in transformer_settings:
+                        transformer_settings[key] = value
+                del transformer_settings['config']
+                
             self._transformer = create_transformer(
-                self.pipeline_config.transformer.type, self.pipeline_config.transformer.config
+                transformer_config.type, transformer_settings
             )
         
         # Loader 인스턴스 생성
         destination_config = self.pipeline_config.destination
+        
+        # 모든 필드를 포함한 설정 가져오기
+        destination_settings = destination_config.model_dump()
+        
+        if 'type' in destination_settings:
+            del destination_settings['type']
+            
+        # config 필드가 있으면 내용을 최상위로 병합하고 원래의 config 필드 제거
+        if 'config' in destination_settings and isinstance(destination_settings['config'], dict):
+            for key, value in destination_settings['config'].items():
+                if key != 'type' and key not in destination_settings:
+                    destination_settings[key] = value
+            del destination_settings['config']
+            
         self._loader = create_loader(
-            destination_config.type, destination_config.config
+            destination_config.type, destination_settings
         )
         
         logger.debug(f"컴포넌트 초기화 완료: {source_config.type} → {destination_config.type}")
@@ -337,11 +382,17 @@ class Pipeline:
             
             # Extractor 검증
             source_config = self.pipeline_config.source
-            extractor = create_extractor(source_config.type, source_config.config)
+            source_settings = source_config.config if hasattr(source_config, 'config') else source_config.model_dump()
+            if 'type' in source_settings:
+                del source_settings['type']
+            extractor = create_extractor(source_config.type, source_settings)
             
             # Loader 검증
             destination_config = self.pipeline_config.destination
-            loader = create_loader(destination_config.type, destination_config.config)
+            destination_settings = destination_config.config if hasattr(destination_config, 'config') else destination_config.model_dump()
+            if 'type' in destination_settings:
+                del destination_settings['type']
+            loader = create_loader(destination_config.type, destination_settings)
             
             # 샘플 데이터로 파이프라인 흐름 검증
             logger.info("샘플 데이터로 파이프라인 검증 중...")

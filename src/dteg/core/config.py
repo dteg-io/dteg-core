@@ -25,12 +25,46 @@ class SourceConfig(BaseModel):
     """데이터 소스 설정"""
     type: str
     config: Dict[str, Any] = Field(default_factory=dict)
+    
+    # 동적 필드 지원을 위한 설정
+    class Config:
+        extra = "allow"
+        
+    def model_dump(self) -> Dict[str, Any]:
+        """모든 필드를 포함한 딕셔너리 반환"""
+        # 기본 필드
+        result = super().model_dump()
+        
+        # config 내부 값을 최상위로 옮기기
+        if self.config:
+            for key, value in self.config.items():
+                if key not in result:
+                    result[key] = value
+        
+        return result
 
 
 class DestinationConfig(BaseModel):
     """데이터 대상 설정"""
     type: str
     config: Dict[str, Any] = Field(default_factory=dict)
+    
+    # 동적 필드 지원을 위한 설정
+    class Config:
+        extra = "allow"
+        
+    def model_dump(self) -> Dict[str, Any]:
+        """모든 필드를 포함한 딕셔너리 반환"""
+        # 기본 필드
+        result = super().model_dump()
+        
+        # config 내부 값을 최상위로 옮기기
+        if self.config:
+            for key, value in self.config.items():
+                if key not in result:
+                    result[key] = value
+        
+        return result
 
 
 class LoggingConfig(BaseModel):
@@ -44,6 +78,23 @@ class TransformerConfig(BaseModel):
     """변환기 설정"""
     type: str = "sql"
     config: Dict[str, Any] = Field(default_factory=dict)
+    
+    # 동적 필드 지원을 위한 설정
+    class Config:
+        extra = "allow"
+        
+    def model_dump(self) -> Dict[str, Any]:
+        """모든 필드를 포함한 딕셔너리 반환"""
+        # 기본 필드
+        result = super().model_dump()
+        
+        # config 내부 값을 최상위로 옮기기
+        if self.config:
+            for key, value in self.config.items():
+                if key not in result:
+                    result[key] = value
+        
+        return result
 
 
 class PipelineStepConfig(BaseModel):
@@ -84,7 +135,9 @@ class PipelineConfig(BaseModel):
             ConfigValidationError: 설정 유효성 검증 실패
         """
         config = load_config(str(yaml_path))
-        pipeline_config = config.pipeline
+        
+        # 새로운 형식 지원
+        pipeline_config = config.get_pipeline_config()
         
         # pipeline_id가 설정되어 있지 않으면 파일 경로를 pipeline_id로 사용
         if not pipeline_config.pipeline_id:
@@ -96,7 +149,46 @@ class PipelineConfig(BaseModel):
 class Config(BaseModel):
     """전체 설정 파일 스키마"""
     version: int = 1
-    pipeline: PipelineConfig
+    pipeline: Optional[PipelineConfig] = None
+    
+    # 이하 필드들은 평면적 구조에서 사용되는 필드들 (PipelineConfig와 동일)
+    name: Optional[str] = None
+    description: Optional[str] = None
+    pipeline_id: Optional[str] = None
+    source: Optional[SourceConfig] = None 
+    destination: Optional[DestinationConfig] = None
+    transformer: Optional[TransformerConfig] = None
+    variables: Dict[str, Any] = Field(default_factory=dict)
+    steps: List[PipelineStepConfig] = Field(default_factory=list)
+    schedule: Optional[str] = None
+    logging: Optional[LoggingConfig] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    
+    def get_pipeline_config(self) -> PipelineConfig:
+        """Config 객체에서 PipelineConfig 객체 추출"""
+        if self.pipeline:
+            # 이전 형식: pipeline 필드 사용
+            return self.pipeline
+        
+        # 새로운 형식: 평면적 구조
+        # 필수 필드 체크
+        if not self.name or not self.source or not self.destination:
+            raise ConfigValidationError("필수 필드 누락: name, source, destination")
+        
+        # PipelineConfig 객체 생성
+        return PipelineConfig(
+            name=self.name,
+            description=self.description,
+            pipeline_id=self.pipeline_id,
+            source=self.source,
+            destination=self.destination,
+            transformer=self.transformer,
+            variables=self.variables,
+            steps=self.steps,
+            schedule=self.schedule,
+            logging=self.logging or LoggingConfig(),
+            metadata=self.metadata
+        )
 
 
 def _expand_env_vars(config_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -239,9 +331,11 @@ def load_config(config_path: str, runtime_variables: Optional[Dict[str, Any]] = 
         "env": dict(os.environ),
     }
 
-    # 설정 내 정의된 변수 추가
+    # 설정 내 정의된 변수 확인 (두 가지 형식 모두 지원)
     if "pipeline" in config_dict and "variables" in config_dict["pipeline"]:
         variables.update(config_dict["pipeline"]["variables"])
+    elif "variables" in config_dict:
+        variables.update(config_dict["variables"])
 
     # 런타임 변수 추가
     if runtime_variables:
@@ -251,10 +345,11 @@ def load_config(config_path: str, runtime_variables: Optional[Dict[str, Any]] = 
     config_dict = _resolve_variables(config_dict, variables)
 
     try:
-        # 스키마 검증
-        return Config(**config_dict)
+        # 설정 검증
+        config = Config(**config_dict)
+        return config
     except ValidationError as e:
-        raise ConfigValidationError(f"설정 파일 검증 실패: {e}")
+        raise ConfigValidationError(f"설정 스키마 검증 실패: {e}")
 
 
 def generate_default_config() -> Dict[str, Any]:
