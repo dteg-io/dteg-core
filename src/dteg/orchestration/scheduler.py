@@ -463,7 +463,7 @@ class Scheduler:
                 self.on_execution_complete(record)
                 
             # 이력 저장
-            self._save_history()
+            self._save_execution_record(record)
             
             return record
         except Exception as e:
@@ -487,9 +487,50 @@ class Scheduler:
     
     def _save_execution_record(self, execution: ExecutionRecord):
         """실행 기록 저장"""
+        # JSON 파일로 저장
         record_path = self.history_dir / f"{execution.id}.json"
         with open(record_path, 'w', encoding='utf-8') as f:
             json.dump(execution.to_dict(), f, indent=2, ensure_ascii=False)
+            
+        # SQLite 데이터베이스에도 저장
+        try:
+            from dteg.web.database import SessionLocal
+            from dteg.web.models.database_models import Execution as DBExecution
+            
+            db = SessionLocal()
+            try:
+                # 기존 실행 기록 확인
+                db_execution = db.query(DBExecution).filter(DBExecution.id == execution.id).first()
+                
+                if db_execution:
+                    # 기존 실행 기록 업데이트
+                    db_execution.status = execution.status
+                    db_execution.ended_at = execution.end_time
+                    db_execution.error_message = execution.error_message
+                    db_execution.logs = '\n'.join(execution.logs) if execution.logs else None
+                else:
+                    # 새 실행 기록 생성
+                    db_execution = DBExecution(
+                        id=execution.id,
+                        pipeline_id=execution.pipeline_id,
+                        schedule_id=execution.schedule_id,
+                        status=execution.status,
+                        started_at=execution.start_time,
+                        ended_at=execution.end_time,
+                        error_message=execution.error_message,
+                        logs='\n'.join(execution.logs) if execution.logs else None
+                    )
+                    db.add(db_execution)
+                
+                db.commit()
+                logger.debug(f"실행 기록 {execution.id}가 데이터베이스에 저장되었습니다.")
+            except Exception as e:
+                db.rollback()
+                logger.error(f"실행 기록 저장 중 데이터베이스 오류: {str(e)}")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"데이터베이스 연결 실패: {str(e)}")
     
     def _save_history(self):
         """모든 실행 이력 저장"""

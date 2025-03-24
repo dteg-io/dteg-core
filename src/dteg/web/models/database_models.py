@@ -98,6 +98,7 @@ class Execution(Base):
     duration = Column(Float, nullable=True)  # 초 단위
     trigger = Column(String(20), nullable=True)  # scheduled, manual, api
     logs = Column(Text, nullable=True)
+    error_message = Column(Text, nullable=True)  # 오류 메시지 저장용 필드
     
     # 관계 정의
     pipeline = relationship("Pipeline", back_populates="executions") 
