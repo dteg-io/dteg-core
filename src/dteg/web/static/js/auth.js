@@ -17,9 +17,8 @@ async function handleLogin(e) {
         const user = await DtegApi.getCurrentUser();
         usernameSpan.textContent = user.username;
 
-        // 현재 페이지 새로고침
-        const activePage = document.querySelector('.nav-link.active').dataset.page;
-        showPage(activePage);
+        // 로그인 성공 시 대시보드로 이동
+        showPage('dashboard');
 
         showToast('로그인에 성공했습니다', 'success');
     } catch (error) {
@@ -30,6 +29,9 @@ async function handleLogin(e) {
 function handleLogout() {
     DtegApi.clearToken();
     usernameSpan.textContent = '사용자';
-    showLoginModal();
+
+    // 로그아웃 시 환영 페이지로 이동
+    showWelcomePage();
+
     showToast('로그아웃 되었습니다', 'info');
 } 

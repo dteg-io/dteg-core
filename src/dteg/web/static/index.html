@@ -83,8 +83,45 @@
     <!-- 콘텐츠 영역 -->
     <div class="container-fluid mt-3">
         <div id="content">
+            <!-- 로그인 전 환영 페이지 -->
+            <div id="welcome-page" class="content-page">
+                <div class="text-center py-5">
+                    <div class="mb-4">
+                        <i class="bi bi-diagram-3 text-primary" style="font-size: 5rem;"></i>
+                    </div>
+                    <h1 class="display-4">DTEG에 오신 것을 환영합니다</h1>
+                    <p class="lead mb-4">데이터 흐름 관리를 위한 강력한 파이프라인 오케스트레이션 도구</p>
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <div class="card bg-light mb-4">
+                                <div class="card-body">
+                                    <h2 class="card-title">기능 살펴보기</h2>
+                                    <div class="row mt-4">
+                                        <div class="col-md-4 mb-3">
+                                            <h4><i class="bi bi-diagram-3 text-primary"></i> 파이프라인</h4>
+                                            <p>다양한 데이터 소스에서 데이터를 추출, 변환하고 대상 시스템에 적재하는 파이프라인을 관리하세요.</p>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <h4><i class="bi bi-calendar3 text-success"></i> 스케줄</h4>
+                                            <p>Cron 표현식을 사용하여 파이프라인 실행을 자동화하고 예약 작업을 관리하세요.</p>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <h4><i class="bi bi-list-check text-info"></i> 모니터링</h4>
+                                            <p>실행 이력, 로그, 성능 지표를 통해 파이프라인 실행을 모니터링하세요.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-lg" id="welcome-login-btn">
+                                <i class="bi bi-box-arrow-in-right"></i> 로그인하여 시작하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 페이지별 콘텐츠는 JS에서 로드됨 -->
-            <div id="dashboard-page" class="content-page">
+            <div id="dashboard-page" class="content-page d-none">
                 <h2>대시보드</h2>
                 <div class="row mt-4">
                     <div class="col-md-3">

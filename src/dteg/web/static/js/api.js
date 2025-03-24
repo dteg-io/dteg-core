@@ -52,7 +52,10 @@ class DtegApi {
             // 인증 오류 처리
             if (response.status === 401) {
                 this.clearToken();
-                showLoginModal();
+                // 인증되지 않은 경우 환영 페이지로 이동
+                if (typeof showWelcomePage === 'function') {
+                    showWelcomePage();
+                }
                 throw new Error('인증이 필요합니다');
             }
 

@@ -9,9 +9,13 @@ const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
 const loginForm = document.getElementById('login-form');
 const logoutBtn = document.getElementById('logout-btn');
 const usernameSpan = document.getElementById('username');
+const welcomeLoginBtn = document.getElementById('welcome-login-btn');
 
 // 페이지별 요소 (핸들러는 나중에 할당)
 const pageHandlers = {
+    welcome: {
+        elements: {}
+    },
     dashboard: {
         elements: {
             totalPipelines: document.getElementById('total-pipelines'),
@@ -73,8 +77,30 @@ function clearTable(tbody) {
     tbody.innerHTML = '<tr><td colspan="6" class="text-center">데이터를 로드 중입니다...</td></tr>';
 }
 
+// 인증되지 않은 사용자를 위한 환영 페이지 표시
+function showWelcomePage() {
+    // 모든 페이지 숨김
+    contentPages.forEach(page => {
+        page.classList.add('d-none');
+    });
+
+    // 환영 페이지만 표시
+    document.getElementById('welcome-page').classList.remove('d-none');
+
+    // 네비게이션 링크 상태 초기화 (모두 비활성화)
+    navLinks.forEach(link => {
+        link.classList.remove('active');
+    });
+}
+
 // 페이지 전환 처리
 function showPage(pageId) {
+    // 인증 상태 확인
+    if (!DtegApi.isAuthenticated() && pageId !== 'welcome') {
+        showWelcomePage();
+        return;
+    }
+
     // 네비게이션 링크 상태 변경
     navLinks.forEach(link => {
         if (link.dataset.page === pageId) {
@@ -124,6 +150,11 @@ document.addEventListener('DOMContentLoaded', () => {
         handleLogout();
     });
 
+    // 환영 페이지 로그인 버튼 클릭 이벤트
+    welcomeLoginBtn.addEventListener('click', () => {
+        showLoginModal();
+    });
+
     // 파이프라인 생성 버튼 이벤트
     pageHandlers.pipelines.elements.createBtn.addEventListener('click', () => {
         showCreatePipelineModal();
@@ -136,29 +167,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 인증 상태 확인
     if (!DtegApi.isAuthenticated()) {
-        showLoginModal();
+        // 로그인되지 않은 경우 환영 페이지 표시
+        showWelcomePage();
     } else {
         // 사용자 정보 로드 시도
         DtegApi.getCurrentUser().then(user => {
             usernameSpan.textContent = user.username;
+            // 대시보드 페이지 로드
+            showPage('dashboard');
         }).catch(() => {
             // 인증 토큰이 유효하지 않은 경우
             DtegApi.clearToken();
-            showLoginModal();
+            showWelcomePage();
         });
     }
-
-    // 기본 페이지 로드
-    showPage('dashboard');
-
-    // 모달 버튼에 대한 이벤트 리스너 설정 (모달이 동적으로 추가되는 경우)
-    // 주의: 각 버튼별 이벤트는 개별 모듈에서 처리하므로 여기서는 제거함
-    // document.body.addEventListener('click', function (e) {
-    //     if (e.target && e.target.id === 'save-schedule-btn') {
-    //         createSchedule();
-    //     }
-    //     if (e.target && e.target.id === 'save-pipeline-btn') {
-    //         createPipeline();
-    //     }
-    // });
 }); 
