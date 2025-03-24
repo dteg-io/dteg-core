@@ -139,7 +139,7 @@ class ScheduleResponse(ScheduleBase):
 class ExecutionBase(BaseModel):
     pipeline_id: str
     status: str
-    trigger: str
+    trigger: Optional[str] = None
     logs: Optional[str] = None
 
 
@@ -158,6 +158,17 @@ class ExecutionResponse(ExecutionBase):
     started_at: datetime
     updated_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class ExecutionListResponse(BaseModel):
+    executions: List[ExecutionResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int
     
     class Config:
         from_attributes = True

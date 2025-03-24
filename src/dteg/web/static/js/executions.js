@@ -78,14 +78,57 @@ function renderPagination(paginationEl, total, currentPage, pageSize) {
         </li>
     `;
 
-    // 페이지 번호
-    for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
-        paginationHtml += `
-            <li class="page-item ${i === currentPage ? 'active' : ''}">
-                <a class="page-link" href="#" data-page="${i}">${i}</a>
-            </li>
-        `;
+    // 페이지 번호 표시 로직 개선
+    // 항상 첫 페이지, 마지막 페이지 표시하고, 현재 페이지 주변 일부만 표시
+
+    // 표시할 페이지 범위 설정
+    const showFirstPage = true;
+    const showLastPage = true;
+    const pagesAroundCurrent = 1; // 현재 페이지 양쪽에 표시할 페이지 수
+
+    let pagesToShow = [];
+
+    // 현재 페이지 주변 페이지 추가
+    for (let i = Math.max(1, currentPage - pagesAroundCurrent);
+        i <= Math.min(totalPages, currentPage + pagesAroundCurrent); i++) {
+        pagesToShow.push(i);
     }
+
+    // 첫 페이지 추가 (아직 없는 경우)
+    if (showFirstPage && !pagesToShow.includes(1)) {
+        pagesToShow.unshift(1);
+
+        // 첫 페이지와 표시된 가장 작은 페이지 사이에 갭이 있으면 생략 표시 추가
+        if (pagesToShow[1] > 2) {
+            pagesToShow.splice(1, 0, 'ellipsis-start');
+        }
+    }
+
+    // 마지막 페이지 추가 (아직 없는 경우)
+    if (showLastPage && !pagesToShow.includes(totalPages) && totalPages > 1) {
+        // 표시된 가장 큰 페이지와 마지막 페이지 사이에 갭이 있으면 생략 표시 추가
+        if (pagesToShow[pagesToShow.length - 1] < totalPages - 1) {
+            pagesToShow.push('ellipsis-end');
+        }
+        pagesToShow.push(totalPages);
+    }
+
+    // 페이지 버튼 생성
+    pagesToShow.forEach(page => {
+        if (page === 'ellipsis-start' || page === 'ellipsis-end') {
+            paginationHtml += `
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            `;
+        } else {
+            paginationHtml += `
+                <li class="page-item ${page === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" data-page="${page}">${page}</a>
+                </li>
+            `;
+        }
+    });
 
     // 다음 버튼
     paginationHtml += `

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from dteg.web.api.auth import get_current_active_user
-from dteg.web.api.models import User, ExecutionResponse
+from dteg.web.api.models import User, ExecutionResponse, ExecutionListResponse
 from dteg.web.models.database_models import Execution, Pipeline
 from dteg.web.database import get_db
 from dteg.orchestration import get_orchestrator
@@ -21,12 +21,12 @@ from dteg.orchestration import get_orchestrator
 # 라우터 정의
 router = APIRouter()
 
-@router.get("", response_model=List[ExecutionResponse])
+@router.get("", response_model=ExecutionListResponse)
 async def get_executions(
     pipeline_id: Optional[str] = None, 
     status: Optional[str] = None,
-    limit: int = Query(default=50, le=100),
-    offset: int = Query(default=0, ge=0),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, le=100),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -36,13 +36,13 @@ async def get_executions(
     Arguments:
         pipeline_id: 필터링할 파이프라인 ID (선택)
         status: 필터링할 상태 (선택)
-        limit: 반환할 최대 실행 이력 수
-        offset: 건너뛸 실행 이력 수
+        page: 페이지 번호 (1부터 시작)
+        page_size: 페이지 크기 (한 페이지당 항목 수)
         current_user: 현재 인증된 사용자 (의존성 주입)
         db: 데이터베이스 세션 (의존성 주입)
         
     Returns:
-        List[ExecutionResponse]: 실행 이력 목록
+        dict: 페이지네이션 정보와 실행 이력 목록을 포함한 응답
     """
     query = db.query(Execution)
     
@@ -56,10 +56,21 @@ async def get_executions(
     # 최신 순으로 정렬
     query = query.order_by(desc(Execution.started_at))
     
-    # 페이지네이션 적용
-    executions = query.offset(offset).limit(limit).all()
+    # 전체 개수 조회
+    total = query.count()
     
-    return executions
+    # 페이지네이션 적용
+    offset = (page - 1) * page_size
+    executions = query.offset(offset).limit(page_size).all()
+    
+    # 페이지네이션 정보 포함하여 반환
+    return {
+        "executions": executions,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": (total + page_size - 1) // page_size  # 총 페이지 수 계산
+    }
 
 @router.get("/{execution_id}", response_model=ExecutionResponse)
 async def get_execution(
