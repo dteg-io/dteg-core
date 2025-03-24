@@ -93,6 +93,7 @@ def migrate_execution_history():
                         started_at=start_time,
                         ended_at=end_time,
                         error_message=data.get("error_message"),
+                        trigger=data.get("trigger", "manual"),
                         logs=logs
                     )
                     
