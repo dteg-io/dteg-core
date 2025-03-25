@@ -15,22 +15,27 @@ async function loadSchedules() {
             return;
         }
 
-        tbody.innerHTML = schedules.map(schedule => `
+        tbody.innerHTML = schedules.map(schedule => {
+            // id와 pipeline_id가 undefined인 경우 기본값 사용
+            const id = schedule.id || 'unknown';
+            const pipelineId = schedule.pipeline_id || 'unknown';
+
+            return `
             <tr>
-                <td>${schedule.id.substring(0, 8)}...</td>
-                <td>${schedule.pipeline_id.substring(0, 8)}...</td>
-                <td><code>${schedule.cron_expression}</code></td>
+                <td>${id.substring(0, 8)}...</td>
+                <td>${pipelineId.substring(0, 8)}...</td>
+                <td><code>${schedule.cron_expression || 'unknown'}</code></td>
                 <td>${schedule.enabled ?
-                '<span class="badge bg-success">활성</span>' :
-                '<span class="badge bg-secondary">비활성</span>'}</td>
+                    '<span class="badge bg-success">활성</span>' :
+                    '<span class="badge bg-secondary">비활성</span>'}</td>
                 <td>${formatDate(schedule.next_run)}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary run-schedule" data-id="${schedule.id}">실행</button>
-                    <button class="btn btn-sm btn-info edit-schedule" data-id="${schedule.id}">편집</button>
-                    <button class="btn btn-sm btn-danger delete-schedule" data-id="${schedule.id}">삭제</button>
+                    <button class="btn btn-sm btn-primary run-schedule" data-id="${id}">실행</button>
+                    <button class="btn btn-sm btn-info edit-schedule" data-id="${id}">편집</button>
+                    <button class="btn btn-sm btn-danger delete-schedule" data-id="${id}">삭제</button>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
 
         // 버튼 이벤트 바인딩
         tbody.querySelectorAll('.run-schedule').forEach(btn => {

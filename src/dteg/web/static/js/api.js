@@ -245,31 +245,37 @@ class DtegApi {
     // 대시보드 API
     static async getDashboardMetrics() {
         try {
-            // 전체 개수를 얻기 위한 첫 페이지 요청
-            const firstPageResponse = await this.fetchApi('/executions?page=1&page_size=1');
-            let total = 0;
+            // 백엔드 API를 통해 직접 메트릭을 가져옵니다.
+            console.log('대시보드 메트릭 API 요청 시작');
+            const metricsResponse = await this.fetchApi('/dashboard/metrics');
+            console.log('대시보드 메트릭 API 응답 원본:', metricsResponse);
 
-            // 응답 구조에 따라 total 추출
-            if (firstPageResponse.total !== undefined) {
-                total = firstPageResponse.total;
-            } else {
-                // total이 없는 경우, 기본값 반환
-                return {
-                    pipeline_status: {
-                        completed: 0,
-                        failed: 0,
-                        running: 0,
-                        cancelled: 0
-                    },
-                    total_executions: 0,
-                    recent_success_rate: 0
-                };
+            // 백엔드 API가 제대로 응답하는 경우 해당 값을 사용
+            if (metricsResponse && metricsResponse.pipeline_status) {
+                console.log('백엔드 메트릭 응답 사용, 완료된 실행 수:', metricsResponse.pipeline_status.completed);
+                return metricsResponse;
             }
 
-            console.log('전체 실행 이력 수:', total);
+            // 직접 실행 이력을 모두 가져와서 계산합니다.
+            console.log('백엔드 메트릭 응답이 없거나 형식이 맞지 않음, 실행 이력 데이터로 계산 시작');
+            const allExecutions = await this.fetchApi('/executions?page=1&page_size=100');
+            console.log('전체 실행 이력 API 응답:', allExecutions);
 
-            // 서버가 허용하는 최대 페이지 크기 (100이 일반적)
-            const maxPageSize = 100;
+            let total = 0;
+            let executions = [];
+
+            // 응답 구조에 따라 데이터 추출
+            if (Array.isArray(allExecutions)) {
+                executions = allExecutions;
+                total = allExecutions.length;
+            } else if (allExecutions.executions && Array.isArray(allExecutions.executions)) {
+                executions = allExecutions.executions;
+                total = allExecutions.total || executions.length;
+            } else {
+                total = allExecutions.total || 0;
+            }
+
+            console.log('전체 실행 이력 수 (정확한 값):', total);
 
             // 상태별 카운터 초기화
             let completed = 0;
@@ -277,39 +283,16 @@ class DtegApi {
             let running = 0;
             let cancelled = 0;
 
-            // 결과를 직접 계산하기 위해 최대 5페이지만 조회 (최대 500개 항목)
-            // 이상적으로는 모든 페이지를 조회해야 하지만 성능상의 이유로 제한함
-            const pagesToFetch = Math.min(Math.ceil(total / maxPageSize), 5);
+            // 모든 실행 이력을 순회하며 상태별 카운트
+            executions.forEach(execution => {
+                const status = execution.status.toLowerCase();
+                if (status === 'completed') completed++;
+                else if (status === 'failed') failed++;
+                else if (status === 'running') running++;
+                else if (status === 'cancelled' || status === 'canceled') cancelled++;
+            });
 
-            for (let page = 1; page <= pagesToFetch; page++) {
-                // 페이지별 데이터 요청
-                const pageResponse = await this.fetchApi(`/executions?page=${page}&page_size=${maxPageSize}`);
-                let pageExecutions = [];
-
-                if (Array.isArray(pageResponse)) {
-                    pageExecutions = pageResponse;
-                } else if (pageResponse.executions && Array.isArray(pageResponse.executions)) {
-                    pageExecutions = pageResponse.executions;
-                }
-
-                // 상태별 카운트 추가
-                completed += pageExecutions.filter(e => e.status.toLowerCase() === 'completed').length;
-                failed += pageExecutions.filter(e => e.status.toLowerCase() === 'failed').length;
-                running += pageExecutions.filter(e => e.status.toLowerCase() === 'running').length;
-                cancelled += pageExecutions.filter(e => e.status.toLowerCase() === 'cancelled').length;
-            }
-
-            // 샘플링 수
-            const sampleSize = Math.min(total, pagesToFetch * maxPageSize);
-
-            // 전체 통계 추정 (샘플 비율 기반)
-            if (sampleSize < total) {
-                const ratio = total / sampleSize;
-                completed = Math.round(completed * ratio);
-                failed = Math.round(failed * ratio);
-                running = Math.round(running * ratio);
-                cancelled = Math.round(cancelled * ratio);
-            }
+            console.log('정확한 상태별 카운트:', { completed, failed, running, cancelled });
 
             const pipelineStatus = {
                 completed,
@@ -317,6 +300,14 @@ class DtegApi {
                 running,
                 cancelled
             };
+
+            console.log('계산된 메트릭 결과:', {
+                total_executions: total,
+                completed,
+                failed,
+                running,
+                cancelled
+            });
 
             return {
                 pipeline_status: pipelineStatus,

@@ -96,20 +96,72 @@ def get_orchestrator(config=None, use_celery=False, broker_url=None, result_back
             Returns:
                 str: 스케줄 ID
             """
-            from dteg.orchestration.scheduler import ScheduleConfig
+            import json
+            import os
+            from datetime import datetime
+            import uuid
+            import os
+            from pathlib import Path
+            import logging
+            import croniter
             
-            # 스케줄 설정 생성
-            schedule_config = ScheduleConfig(
-                pipeline_config=pipeline_id,  # 파이프라인 ID 직접 전달
-                cron_expression=cron_expression,
-                enabled=True
-            )
+            logger = logging.getLogger(__name__)
             
-            # ID를 직접 설정 (ScheduleConfig.__init__에서 자동 생성 후 재설정)
-            schedule_config.id = schedule_id
-            
-            # 스케줄 등록
-            return self.scheduler.add_schedule(schedule_config)
+            # 웹 API 호환 스케줄 파일 직접 생성
+            try:
+                # 기본 정보 설정
+                now = datetime.now()
+                
+                # 다음 실행 시간 계산
+                cron = croniter.croniter(cron_expression, now)
+                next_run = cron.get_next(ret_type=datetime)
+                
+                # 스케줄 데이터 준비
+                schedule_data = {
+                    "id": schedule_id or str(uuid.uuid4()),
+                    "name": f"Pipeline {pipeline_id[:8]}",
+                    "description": f"Pipeline {pipeline_id[:8]}",
+                    "pipeline_id": pipeline_id,
+                    "cron_expression": cron_expression,
+                    "enabled": True,
+                    "parameters": parameters or {},
+                    "params": parameters or {},
+                    "created_at": now.isoformat(),
+                    "updated_at": now.isoformat(),
+                    "next_run": next_run.isoformat(),
+                    "dependencies": [],
+                    "max_retries": 3,
+                    "retry_delay": 300
+                }
+                
+                # 스케줄 파일 저장
+                schedule_dir = self.scheduler.schedule_dir
+                schedule_file = os.path.join(schedule_dir, f"{schedule_id}.json")
+                
+                with open(schedule_file, 'w') as f:
+                    json.dump(schedule_data, f, indent=2)
+                
+                logger.info(f"스케줄 파일 생성됨: {schedule_file}")
+                
+                # 내부 스케줄러에 등록
+                from dteg.orchestration.scheduler import ScheduleConfig
+                
+                # 스케줄 설정 생성
+                schedule_config = ScheduleConfig(
+                    pipeline_config=pipeline_id,  # 파이프라인 ID 직접 전달
+                    cron_expression=cron_expression,
+                    enabled=True
+                )
+                
+                # ID를 직접 설정
+                schedule_config.id = schedule_id
+                
+                # 스케줄 등록 (내부적으로만 사용되며 파일은 덮어쓰지 않음)
+                return self.scheduler.add_schedule(schedule_config)
+                
+            except Exception as e:
+                logger.error(f"스케줄 등록 중 오류 발생: {str(e)}")
+                raise
         
         # 스케줄 삭제 메소드
         def remove_schedule(self, schedule_id):

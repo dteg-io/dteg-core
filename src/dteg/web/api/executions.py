@@ -5,30 +5,33 @@ DTEG Web API - 실행 이력
 """
 from typing import List, Optional
 import uuid
+import os
+import json
+import glob
+import logging
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
 
 from dteg.web.api.auth import get_current_active_user
 from dteg.web.api.models import User, ExecutionResponse, ExecutionListResponse
-from dteg.web.models.database_models import Execution, Pipeline
-from dteg.web.database import get_db
+from dteg.config import get_config
 from dteg.orchestration import get_orchestrator
+
+# 로거 설정
+logger = logging.getLogger(__name__)
 
 # 라우터 정의
 router = APIRouter()
 
-@router.get("", response_model=ExecutionListResponse)
+@router.get("", response_model=List[dict])
 async def get_executions(
     pipeline_id: Optional[str] = None, 
     status: Optional[str] = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, le=100),
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_active_user)
 ):
     """
     실행 이력 목록 조회
@@ -39,44 +42,71 @@ async def get_executions(
         page: 페이지 번호 (1부터 시작)
         page_size: 페이지 크기 (한 페이지당 항목 수)
         current_user: 현재 인증된 사용자 (의존성 주입)
-        db: 데이터베이스 세션 (의존성 주입)
         
     Returns:
-        dict: 페이지네이션 정보와 실행 이력 목록을 포함한 응답
+        List[dict]: 실행 이력 목록
     """
-    query = db.query(Execution)
+    config = get_config()
+    executions_dir = os.path.join(config.storage_path, "executions")
     
-    # 필터 적용
-    if pipeline_id:
-        query = query.filter(Execution.pipeline_id == pipeline_id)
+    # 로깅 추가
+    logger.info(f"실행 이력 조회: executions_dir={executions_dir}")
+    logger.info(f"디렉토리 존재 여부: {os.path.exists(executions_dir)}")
+
+    # 모든 실행 이력 파일 로드
+    execution_files = glob.glob(os.path.join(executions_dir, "*.json"))
+    logger.info(f"발견된 실행 이력 파일 수: {len(execution_files)}")
     
-    if status:
-        query = query.filter(Execution.status == status)
+    executions = []
+    
+    for execution_file in execution_files:
+        try:
+            with open(execution_file, 'r') as f:
+                execution = json.load(f)
+                
+                # 필터 적용
+                if pipeline_id and execution.get("pipeline_id") != pipeline_id:
+                    continue
+                
+                if status and execution.get("status", "").lower() != status.lower():
+                    continue
+                
+                # 시작 시간 파싱 (정렬용)
+                if "started_at" in execution:
+                    try:
+                        started_at = datetime.fromisoformat(execution["started_at"].replace("Z", "+00:00"))
+                        execution["started_at_datetime"] = started_at
+                    except Exception:
+                        execution["started_at_datetime"] = datetime.min
+                else:
+                    execution["started_at_datetime"] = datetime.min
+                
+                executions.append(execution)
+        except Exception as e:
+            logger.error(f"실행 이력 파일 읽기 오류: {str(e)}")
     
     # 최신 순으로 정렬
-    query = query.order_by(desc(Execution.started_at))
+    executions.sort(key=lambda x: x["started_at_datetime"], reverse=True)
     
-    # 전체 개수 조회
-    total = query.count()
+    # 전체 개수 계산
+    total = len(executions)
+    logger.info(f"필터링 후 실행 이력 수: {total}")
     
     # 페이지네이션 적용
     offset = (page - 1) * page_size
-    executions = query.offset(offset).limit(page_size).all()
+    paginated_executions = executions[offset:offset + page_size] if executions else []
     
-    # 페이지네이션 정보 포함하여 반환
-    return {
-        "executions": executions,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "pages": (total + page_size - 1) // page_size  # 총 페이지 수 계산
-    }
+    # 응답에서 시작 시간 datetime 객체 제거
+    for execution in paginated_executions:
+        if "started_at_datetime" in execution:
+            del execution["started_at_datetime"]
+    
+    return paginated_executions
 
-@router.get("/{execution_id}", response_model=ExecutionResponse)
+@router.get("/{execution_id}", response_model=dict)
 async def get_execution(
     execution_id: str,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_active_user)
 ):
     """
     특정 실행 이력 조회
@@ -84,83 +114,80 @@ async def get_execution(
     Arguments:
         execution_id: 실행 이력 ID
         current_user: 현재 인증된 사용자 (의존성 주입)
-        db: 데이터베이스 세션 (의존성 주입)
         
     Returns:
-        ExecutionResponse: 실행 이력 정보
+        dict: 실행 이력 정보
     """
-    execution = db.query(Execution).filter(Execution.id == execution_id).first()
+    config = get_config()
+    execution_file = os.path.join(config.storage_path, "executions", f"{execution_id}.json")
     
-    if not execution:
+    if not os.path.exists(execution_file):
         raise HTTPException(status_code=404, detail="실행 이력을 찾을 수 없습니다")
     
-    return execution
+    try:
+        with open(execution_file, 'r') as f:
+            execution = json.load(f)
+            return execution
+    except Exception as e:
+        logger.error(f"실행 이력 파일 읽기 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail="실행 이력 로드 중 오류가 발생했습니다")
 
 @router.get("/{execution_id}/logs", response_model=dict)
 async def get_execution_logs(
     execution_id: str,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_active_user)
 ):
     """
-    특정 실행의 로그 조회
+    실행 로그 조회
     
     Arguments:
         execution_id: 실행 이력 ID
         current_user: 현재 인증된 사용자 (의존성 주입)
-        db: 데이터베이스 세션 (의존성 주입)
         
     Returns:
-        dict: 로그 정보 (로그 텍스트, 상태 등)
+        dict: 실행 로그 정보
     """
-    execution = db.query(Execution).filter(Execution.id == execution_id).first()
+    config = get_config()
+    execution_file = os.path.join(config.storage_path, "executions", f"{execution_id}.json")
     
-    if not execution:
+    if not os.path.exists(execution_file):
         raise HTTPException(status_code=404, detail="실행 이력을 찾을 수 없습니다")
     
-    # 로그가 없을 경우 기본 메시지
-    logs = execution.logs or "로그 정보가 없습니다."
+    # 실행 파일 로드
+    try:
+        with open(execution_file, 'r') as f:
+            execution = json.load(f)
+    except Exception as e:
+        logger.error(f"실행 이력 파일 읽기 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail="실행 이력 로드 중 오류가 발생했습니다")
     
-    # 실행 중인 경우 추가 로그 시도
-    if execution.status == "running":
+    # 로그 파일 경로
+    log_file = os.path.join(config.storage_path, "logs", f"execution_{execution_id}.log")
+    logs = ""
+    
+    if os.path.exists(log_file):
         try:
-            orchestrator = get_orchestrator()
-            additional_logs = orchestrator.get_execution_logs(execution_id)
-            
-            if additional_logs:
-                # 로그 업데이트
-                if isinstance(additional_logs, str):
-                    logs = additional_logs
-                elif isinstance(additional_logs, dict) and "logs" in additional_logs:
-                    logs = additional_logs["logs"]
-                
-                # 실행 중인 경우만 DB 로그 업데이트
-                execution.logs = logs
-                db.commit()
-                
-                # 실행 상태 업데이트 (완료/실패 여부)
-                if additional_logs.get("status") in ["completed", "failed"]:
-                    execution.status = additional_logs["status"]
-                    execution.ended_at = datetime.now()
-                    db.commit()
+            with open(log_file, 'r') as f:
+                logs = f.read()
         except Exception as e:
-            # 로그 검색 실패 시에도 기존 로그는 반환
-            print(f"로그 검색 실패: {str(e)}")
+            logger.error(f"로그 파일 읽기 오류: {str(e)}")
+            logs = "로그 파일 읽기 오류가 발생했습니다."
+    else:
+        logs = "로그 파일이 존재하지 않습니다."
     
     return {
         "execution_id": execution_id,
-        "status": execution.status,
+        "status": execution.get("status", "unknown"),
         "logs": logs,
-        "pipeline_id": execution.pipeline_id,
-        "created_at": execution.started_at,
-        "completed_at": execution.ended_at
+        "pipeline_id": execution.get("pipeline_id", ""),
+        "created_at": execution.get("started_at", ""),
+        "completed_at": execution.get("ended_at", "")
     }
 
-@router.delete("/{execution_id}", status_code=204)
+@router.delete("/{execution_id}", response_model=dict)
 async def delete_execution(
     execution_id: str,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_active_user)
 ):
     """
     실행 이력 삭제
@@ -168,79 +195,29 @@ async def delete_execution(
     Arguments:
         execution_id: 삭제할 실행 이력 ID
         current_user: 현재 인증된 사용자 (의존성 주입)
-        db: 데이터베이스 세션 (의존성 주입)
         
     Returns:
-        None: 204 No Content
+        dict: 삭제 결과
     """
-    execution = db.query(Execution).filter(Execution.id == execution_id).first()
+    config = get_config()
+    execution_file = os.path.join(config.storage_path, "executions", f"{execution_id}.json")
     
-    if not execution:
+    if not os.path.exists(execution_file):
         raise HTTPException(status_code=404, detail="실행 이력을 찾을 수 없습니다")
     
-    # 실행 중인 경우 취소 시도
-    if execution.status == "running":
-        try:
-            orchestrator = get_orchestrator()
-            orchestrator.cancel_execution(execution_id)
-        except Exception as e:
-            # 취소 실패 시에도 DB에서는 삭제 진행
-            print(f"실행 취소 실패: {str(e)}")
-    
-    # 데이터베이스에서 삭제
-    db.delete(execution)
-    db.commit()
-    
-    return None
-
-@router.post("/{execution_id}/cancel", status_code=200)
-async def cancel_execution(
-    execution_id: str,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    실행 취소
-    
-    Arguments:
-        execution_id: 취소할 실행 ID
-        current_user: 현재 인증된 사용자 (의존성 주입)
-        db: 데이터베이스 세션 (의존성 주입)
-        
-    Returns:
-        dict: 취소 상태 정보
-    """
-    execution = db.query(Execution).filter(Execution.id == execution_id).first()
-    
-    if not execution:
-        raise HTTPException(status_code=404, detail="실행 이력을 찾을 수 없습니다")
-    
-    # 이미 완료되었거나 실패한 경우
-    if execution.status in ["completed", "failed", "cancelled"]:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"이미 {execution.status} 상태인 실행은 취소할 수 없습니다"
-        )
-    
-    # 실행 취소 시도
+    # 실행 파일 삭제
     try:
-        orchestrator = get_orchestrator()
-        result = orchestrator.cancel_execution(execution_id)
-        
-        # 상태 업데이트
-        execution.status = "cancelled"
-        execution.ended_at = datetime.now()
-        execution.logs = (execution.logs or "") + "\n실행이 취소되었습니다."
-        db.commit()
-        
-        return {
-            "status": "success",
-            "message": "실행이 취소되었습니다",
-            "execution_id": execution_id
-        }
+        os.remove(execution_file)
     except Exception as e:
-        # 취소 실패
-        raise HTTPException(
-            status_code=500,
-            detail=f"실행 취소 중 오류가 발생했습니다: {str(e)}"
-        ) 
+        logger.error(f"실행 이력 파일 삭제 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail="실행 이력 삭제 중 오류가 발생했습니다")
+    
+    # 로그 파일도 삭제
+    log_file = os.path.join(config.storage_path, "logs", f"execution_{execution_id}.log")
+    if os.path.exists(log_file):
+        try:
+            os.remove(log_file)
+        except Exception as e:
+            logger.error(f"로그 파일 삭제 오류: {str(e)}")
+    
+    return {"message": "실행 이력이 삭제되었습니다", "execution_id": execution_id} 
