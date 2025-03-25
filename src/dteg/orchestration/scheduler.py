@@ -618,17 +618,68 @@ class Scheduler:
             try:
                 # DB에서 파이프라인 정보 조회
                 db_pipeline = db.query(DBPipeline).filter(DBPipeline.id == pipeline_id).first()
-                return db_pipeline
+                if db_pipeline:
+                    return db_pipeline
+                else:
+                    # DB에서 찾지 못한 경우, 파일 시스템에서 로드 시도
+                    logger.info(f"DB에서 파이프라인 {pipeline_id}를 찾지 못했습니다. 파일 시스템에서 시도합니다.")
+                    return self._get_pipeline_from_file(pipeline_id)
             except Exception as e:
                 logger.error(f"DB에서 파이프라인 정보 조회 중 오류: {str(e)}")
-                return None
+                # DB 오류 시에도 파일 시스템에서 로드 시도
+                return self._get_pipeline_from_file(pipeline_id)
             finally:
                 db.close()
         except ImportError:
-            logger.warning("웹 UI 데이터베이스 모듈이 로드되지 않았습니다.")
-            return None
+            logger.warning("웹 UI 데이터베이스 모듈이 로드되지 않았습니다. 파일 시스템을 확인합니다.")
+            return self._get_pipeline_from_file(pipeline_id)
         except Exception as e:
             logger.error(f"파이프라인 정보 조회 중 오류: {str(e)}")
+            # 다른 예외도 파일 시스템에서 시도
+            return self._get_pipeline_from_file(pipeline_id)
+            
+    def _get_pipeline_from_file(self, pipeline_id: str):
+        """
+        파일 시스템에서 파이프라인 정보를 조회
+        
+        Args:
+            pipeline_id: 파이프라인 ID
+            
+        Returns:
+            파이프라인 객체 또는 None (DB Pipeline 객체와 호환되는 형태로 반환)
+        """
+        try:
+            import os
+            import json
+            from dteg.config import get_config
+            
+            # 설정에서 파이프라인 디렉토리 가져오기
+            config = get_config()
+            pipeline_file = os.path.join(config.pipelines_dir, f"{pipeline_id}.json")
+            
+            # 파일 존재 확인
+            if not os.path.exists(pipeline_file):
+                logger.warning(f"파이프라인 파일이 존재하지 않습니다: {pipeline_file}")
+                return None
+                
+            # 파이프라인 파일 읽기
+            with open(pipeline_file, 'r') as f:
+                pipeline_data = json.load(f)
+                
+            # DB Pipeline 객체와 호환되는 형태로 변환
+            # 간단한 임시 객체 생성
+            class PipelineObj:
+                def __init__(self, id, config):
+                    self.id = id
+                    self.config = config
+                    
+            return PipelineObj(
+                id=pipeline_data.get("id", pipeline_id),
+                config=pipeline_data.get("config", {})
+            )
+            
+        except Exception as e:
+            logger.error(f"파일에서 파이프라인 정보 로드 중 오류: {str(e)}")
             return None
     
     def _save_history(self):

@@ -11,10 +11,13 @@ from pathlib import Path
 import uuid
 import sys
 import traceback
+import os
+import json
 
 from dteg.orchestration.scheduler import Scheduler, ScheduleConfig, ExecutionRecord
 from dteg.orchestration.worker import CeleryTaskManager, CeleryTaskQueue
 from dteg.core.config import PipelineConfig
+from dteg.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -147,12 +150,28 @@ class Orchestrator:
             # 스케줄이 있는 경우, 스케줄의 파이프라인 설정 사용
             pipeline_config = schedule.pipeline_config
         else:
-            # 스케줄이 없는 경우, 파이프라인 ID로 가정
-            pipeline_id = pipeline_id
-            # 여기서는 파이프라인 ID만 있고 설정이 없으므로, 
-            # 실제로는 파이프라인 설정을 조회하는 코드가 필요함
-            # 지금은 예시를 위해 생략
-            raise OrchestratorError(f"파이프라인 ID {pipeline_id}에 대한 설정을 찾을 수 없습니다.")
+            # 스케줄이 없는 경우, 파이프라인 ID로 파일 확인
+            try:
+                # 설정에서 파이프라인 디렉토리 가져오기
+                config = get_config()
+                pipeline_file = os.path.join(config.pipelines_dir, f"{pipeline_id}.json")
+                
+                # 파일 존재 확인
+                if os.path.exists(pipeline_file):
+                    # 파이프라인 파일 읽기
+                    with open(pipeline_file, 'r') as f:
+                        pipeline_data = json.load(f)
+                    
+                    # 설정 추출
+                    pipeline_config = pipeline_data.get("config", {})
+                    logger.info(f"파이프라인 ID {pipeline_id}의 설정 파일을 로드했습니다.")
+                else:
+                    # 파일이 없는 경우
+                    logger.error(f"파이프라인 ID {pipeline_id}에 대한 파일을 찾을 수 없습니다: {pipeline_file}")
+                    raise OrchestratorError(f"파이프라인 ID {pipeline_id}에 대한 파일을 찾을 수 없습니다.")
+            except Exception as e:
+                logger.error(f"파이프라인 ID {pipeline_id} 설정 로드 중 오류: {str(e)}")
+                raise OrchestratorError(f"파이프라인 ID {pipeline_id}에 대한 설정을 찾을 수 없습니다: {str(e)}")
         
         # 실행 방식 결정
         if self.use_celery and async_execution:
